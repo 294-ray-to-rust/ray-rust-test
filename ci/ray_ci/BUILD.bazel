@@ -12,10 +12,10 @@ py_library(
         "supported_images.py",
     ],
     data = [
+        "//:.rayciversion",
         "//:ray-images.yaml",
     ],
     visibility = [
-        "//ci/build:__pkg__",
         "//ci/ray_ci:__subpackages__",
     ],
     deps = [
