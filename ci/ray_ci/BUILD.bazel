@@ -9,10 +9,18 @@ py_library(
         "docker_container.py",
         "linux_container.py",
         "ray_image.py",
+        "supported_images.py",
+    ],
+    data = [
+        "//:.rayciversion",
+        "//:ray-images.yaml",
     ],
     visibility = [
         "//ci/build:__pkg__",
         "//ci/ray_ci:__subpackages__",
+    ],
+    deps = [
+        ci_require("pyyaml"),
     ],
 )
 
