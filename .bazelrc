@@ -232,6 +232,24 @@ try-import %workspace%/.llvm-local.bazelrc
 # Allow users to define custom options.
 try-import %workspace%/.user.bazelrc
 
+# Rust toolchain configuration
+build:rust --@rules_rust//rust/toolchain/channel=stable
+build:rust --aspects=@rules_rust//rust:defs.bzl%rust_clippy_aspect
+build:rust --output_groups=+clippy_checks
+
+# Rust debug build
+build:rust-debug --config=rust
+build:rust-debug -c dbg
+
+# Rust release build
+build:rust-release --config=rust
+build:rust-release -c opt
+
+# Rust FFI configuration (for C++/Rust interop)
+# Uses static linking to avoid allocator library issues
+build:rust-ffi --dynamic_mode=off
+test:rust-ffi --dynamic_mode=off
+
 # Even with sandbox mode bazel prioritizes system headers over the ones in the sandbox.
 # It picks up the system headers when someone has protobuf installed via Homebrew.
 # Work around for https://github.com/bazelbuild/bazel/issues/8053

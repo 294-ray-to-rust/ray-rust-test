@@ -1,0 +1,42 @@
+# Dockerfile for testing Ray Rust FFI infrastructure
+# Usage: docker build -f Dockerfile.rust-ffi -t ray-rust-ffi .
+#        docker run --rm ray-rust-ffi bazel build //src/ray/rust/...
+
+FROM ubuntu:22.04
+
+# Avoid interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    build-essential \
+    python3 \
+    python3-pip \
+    openjdk-11-jdk \
+    zip \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Bazelisk (manages Bazel versions automatically)
+RUN curl -fsSL -o /usr/local/bin/bazel https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64 \
+    && chmod +x /usr/local/bin/bazel
+
+# Install Rust (for cargo test outside of Bazel)
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.82.0
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+WORKDIR /ray
+
+# Copy project files
+COPY . .
+
+# Regenerate Cargo.lock with current Rust version
+RUN cd /ray/src/ray/rust && rm -f Cargo.lock && cargo check --workspace --all-targets 2>/dev/null || true
+
+# Install cxxbridge-cmd for C++ code generation
+RUN cargo install cxxbridge-cmd@1.0.194
+
+# Build command
+CMD ["bazel", "build", "--noenable_bzlmod", "//src/ray/rust/..."]

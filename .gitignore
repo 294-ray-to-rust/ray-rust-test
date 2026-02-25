@@ -247,3 +247,4 @@ tag-mapping.json
 
 # Claude files
 /.claude/
+src/ray/rust/target/

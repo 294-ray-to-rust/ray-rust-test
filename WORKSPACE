@@ -42,8 +42,9 @@ grpc_extra_deps()
 load("@bazel_skylib//lib:versions.bzl", "versions")
 
 # Please keep this in sync with the .bazelversion file.
+# Note: Relaxed to allow Bazel 7.x for Rust FFI development
 versions.check(
-    maximum_bazel_version = "6.5.0",
+    maximum_bazel_version = "7.6.0",
     minimum_bazel_version = "6.5.0",
 )
 
@@ -169,3 +170,39 @@ http_archive(
 load("@com_github_storypku_bazel_iwyu//bazel:dependencies.bzl", "bazel_iwyu_dependencies")
 
 bazel_iwyu_dependencies()
+
+# Rust FFI Infrastructure
+load("//bazel:ray_deps_rust.bzl", "ray_rust_deps")
+
+ray_rust_deps()
+
+load("@rules_rust//rust:repositories.bzl", "rules_rust_dependencies", "rust_register_toolchains")
+
+rules_rust_dependencies()
+
+rust_register_toolchains(
+    edition = "2021",
+    versions = ["1.82.0"],
+)
+
+# CXX crate for C++/Rust FFI
+load("@rules_rust//crate_universe:repositories.bzl", "crate_universe_dependencies")
+
+crate_universe_dependencies()
+
+load("@rules_rust//crate_universe:defs.bzl", "crates_repository")
+
+crates_repository(
+    name = "crate_index",
+    cargo_lockfile = "//src/ray/rust:Cargo.lock",
+    manifests = [
+        "//src/ray/rust:Cargo.toml",
+        "//src/ray/rust/ray-common:Cargo.toml",
+        "//src/ray/rust/ray-ffi:Cargo.toml",
+        "//src/ray/rust/ray-test-utils:Cargo.toml",
+    ],
+)
+
+load("@crate_index//:defs.bzl", "crate_repositories")
+
+crate_repositories()
