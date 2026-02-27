@@ -41,6 +41,12 @@ ray_cxx_bridge(
     src = "//src/ray/rust/ray-ffi:src/common/plasma.rs",
 )
 
+# CXX bridge for lifecycle types
+ray_cxx_bridge(
+    name = "lifecycle_bridge",
+    src = "//src/ray/rust/ray-ffi:src/common/lifecycle.rs",
+)
+
 # C++ wrapper for Rust Status implementation
 ray_cc_library(
     name = "rust_status",
@@ -87,11 +93,23 @@ ray_cc_library(
     ],
 )
 
+# C++ wrapper for Rust lifecycle implementations
+ray_cc_library(
+    name = "rust_lifecycle",
+    hdrs = ["rust_lifecycle.h"],
+    deps = [
+        ":lifecycle_bridge",
+        "//src/ray/rust/ray-ffi:ray_ffi_static",
+        "@crate_index//:cxx",
+    ],
+)
+
 # Combined FFI library for convenience
 ray_cc_library(
     name = "ray_rust_ffi",
     deps = [
         ":rust_id",
+        ":rust_lifecycle",
         ":rust_plasma",
         ":rust_scheduling",
         ":rust_status",

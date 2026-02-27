@@ -52,3 +52,6 @@ ray-test-utils = { path = "ray-test-utils" }
 # Additional dependencies
 parking_lot = "0.12"
 dashmap = "5.5"
+mmap-rs = "0.6"
+# Pin tempfile to avoid getrandom 0.4 (requires edition2024)
+tempfile = "=3.14.0"

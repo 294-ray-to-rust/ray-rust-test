@@ -19,7 +19,6 @@ use parking_lot::RwLock;
 use ray_common::ObjectId;
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
-use std::sync::Arc;
 
 use super::common::{
     Allocation, LocalObject, ObjectInfo, ObjectSource, ObjectState, PlasmaError, PlasmaResult,

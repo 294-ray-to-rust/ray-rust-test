@@ -771,6 +771,607 @@ pub fn fixed_point_vector_to_string(vector: &[FixedPoint]) -> String {
     format!("[{}]", parts.join(", "))
 }
 
+// ============================================================================
+// ResourceRequest
+// ============================================================================
+
+/// A resource request representing required resources for a task.
+/// Similar to ResourceSet but with comparison operators for scheduling.
+#[derive(Clone, Default)]
+pub struct ResourceRequest {
+    resources: HashMap<ResourceId, FixedPoint>,
+}
+
+impl ResourceRequest {
+    /// Create an empty ResourceRequest.
+    pub fn new() -> Self {
+        Self {
+            resources: HashMap::new(),
+        }
+    }
+
+    /// Create a ResourceRequest from a ResourceId-keyed map.
+    pub fn from_resource_map(resource_map: &HashMap<ResourceId, FixedPoint>) -> Self {
+        let mut req = Self::new();
+        for (&id, &value) in resource_map {
+            if !value.is_zero() {
+                req.resources.insert(id, value);
+            }
+        }
+        req
+    }
+
+    /// Get the value for a resource, or zero if not present.
+    pub fn get(&self, resource_id: ResourceId) -> FixedPoint {
+        self.resources.get(&resource_id).copied().unwrap_or(FixedPoint::zero())
+    }
+
+    /// Set a resource value. If zero, the resource is removed.
+    pub fn set(&mut self, resource_id: ResourceId, value: FixedPoint) {
+        if value.is_zero() {
+            self.resources.remove(&resource_id);
+        } else {
+            self.resources.insert(resource_id, value);
+        }
+    }
+
+    /// Check if a resource exists in the request.
+    pub fn has(&self, resource_id: ResourceId) -> bool {
+        self.resources.contains_key(&resource_id)
+    }
+
+    /// Get the number of resources in the request.
+    pub fn size(&self) -> usize {
+        self.resources.len()
+    }
+
+    /// Check if the request is empty.
+    pub fn is_empty(&self) -> bool {
+        self.resources.is_empty()
+    }
+
+    /// Clear all resources.
+    pub fn clear(&mut self) {
+        self.resources.clear();
+    }
+
+    /// Get an iterator over resource IDs.
+    pub fn resource_ids(&self) -> impl Iterator<Item = &ResourceId> {
+        self.resources.keys()
+    }
+
+    /// Get the underlying resources map.
+    pub fn resources(&self) -> &HashMap<ResourceId, FixedPoint> {
+        &self.resources
+    }
+
+    /// Convert to a string-keyed map with double values.
+    pub fn to_resource_map(&self) -> HashMap<String, f64> {
+        self.resources
+            .iter()
+            .map(|(&id, &value)| (id.to_string(), value.to_double()))
+            .collect()
+    }
+
+    /// Check if this request is <= another (all values <= other's values).
+    /// A request r1 <= r2 means r1 can be satisfied if r2 can be satisfied.
+    pub fn is_less_or_equal(&self, other: &Self) -> bool {
+        // Check all resources in self
+        for (&id, &value) in &self.resources {
+            if value > other.get(id) {
+                return false;
+            }
+        }
+        // Check all resources in other that we don't have
+        for (&id, &value) in &other.resources {
+            if !self.has(id) && value < FixedPoint::zero() {
+                // Other has negative, we have 0, so 0 > negative means we're not <=
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Check if this request is >= another.
+    pub fn is_greater_or_equal(&self, other: &Self) -> bool {
+        other.is_less_or_equal(self)
+    }
+}
+
+impl PartialEq for ResourceRequest {
+    fn eq(&self, other: &Self) -> bool {
+        if self.resources.len() != other.resources.len() {
+            return false;
+        }
+        for (&id, &value) in &self.resources {
+            if other.get(id) != value {
+                return false;
+            }
+        }
+        true
+    }
+}
+
+impl Eq for ResourceRequest {}
+
+impl Add for ResourceRequest {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        let mut result = self.clone();
+        result += other;
+        result
+    }
+}
+
+impl AddAssign for ResourceRequest {
+    fn add_assign(&mut self, other: Self) {
+        for (&id, &value) in &other.resources {
+            let current = self.get(id);
+            self.set(id, current + value);
+        }
+    }
+}
+
+impl Sub for ResourceRequest {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> Self {
+        let mut result = self.clone();
+        result -= other;
+        result
+    }
+}
+
+impl SubAssign for ResourceRequest {
+    fn sub_assign(&mut self, other: Self) {
+        for (&id, &value) in &other.resources {
+            let current = self.get(id);
+            self.set(id, current - value);
+        }
+    }
+}
+
+impl fmt::Debug for ResourceRequest {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let parts: Vec<String> = self
+            .resources
+            .iter()
+            .map(|(id, value)| format!("{}: {}", id.to_string(), value.to_double()))
+            .collect();
+        write!(f, "ResourceRequest{{{}}}", parts.join(", "))
+    }
+}
+
+// ============================================================================
+// TaskResourceInstances
+// ============================================================================
+
+/// Task resource instances tracking per-instance allocations.
+/// For unit resources like GPU, tracks each instance separately.
+/// For non-unit resources like CPU, uses a single aggregate value.
+#[derive(Clone, Default)]
+pub struct TaskResourceInstances {
+    resources: HashMap<ResourceId, Vec<FixedPoint>>,
+}
+
+impl TaskResourceInstances {
+    /// Create an empty TaskResourceInstances.
+    pub fn new() -> Self {
+        Self {
+            resources: HashMap::new(),
+        }
+    }
+
+    /// Create TaskResourceInstances from a ResourceSet.
+    /// For unit resources (like GPU), splits the total into individual instances.
+    /// For non-unit resources (like CPU), uses a single value.
+    pub fn from_resource_set(resource_set: &ResourceSet) -> Self {
+        let mut instances = Self::new();
+        for (&id, &value) in resource_set.resources() {
+            if id.is_unit_instance() {
+                // Split into individual unit instances
+                let count = value.to_double() as usize;
+                let mut vec = Vec::with_capacity(count);
+                for _ in 0..count {
+                    vec.push(FixedPoint::from_int(1));
+                }
+                instances.resources.insert(id, vec);
+            } else {
+                // Non-unit resource: single aggregate value
+                instances.resources.insert(id, vec![value]);
+            }
+        }
+        instances
+    }
+
+    /// Check if a resource exists.
+    pub fn has(&self, resource_id: ResourceId) -> bool {
+        self.resources.contains_key(&resource_id)
+    }
+
+    /// Get the instances for a resource.
+    pub fn get(&self, resource_id: ResourceId) -> Vec<FixedPoint> {
+        self.resources.get(&resource_id).cloned().unwrap_or_default()
+    }
+
+    /// Set the instances for a resource.
+    pub fn set(&mut self, resource_id: ResourceId, instances: Vec<FixedPoint>) {
+        if instances.is_empty() {
+            self.resources.remove(&resource_id);
+        } else {
+            self.resources.insert(resource_id, instances);
+        }
+    }
+
+    /// Remove a resource.
+    pub fn remove(&mut self, resource_id: ResourceId) {
+        self.resources.remove(&resource_id);
+    }
+
+    /// Get the number of resources.
+    pub fn size(&self) -> usize {
+        self.resources.len()
+    }
+
+    /// Check if empty.
+    pub fn is_empty(&self) -> bool {
+        self.resources.is_empty()
+    }
+
+    /// Get an iterator over resource IDs.
+    pub fn resource_ids(&self) -> impl Iterator<Item = &ResourceId> {
+        self.resources.keys()
+    }
+
+    /// Get the sum of all instances for a resource.
+    pub fn sum(&self, resource_id: ResourceId) -> FixedPoint {
+        self.resources
+            .get(&resource_id)
+            .map(|v| FixedPoint::sum(v))
+            .unwrap_or(FixedPoint::zero())
+    }
+
+    /// Convert back to a ResourceSet.
+    pub fn to_resource_set(&self) -> ResourceSet {
+        let mut set = ResourceSet::new();
+        for (&id, instances) in &self.resources {
+            let total = FixedPoint::sum(instances);
+            if !total.is_zero() {
+                set.set(id, total);
+            }
+        }
+        set
+    }
+}
+
+impl PartialEq for TaskResourceInstances {
+    fn eq(&self, other: &Self) -> bool {
+        if self.resources.len() != other.resources.len() {
+            return false;
+        }
+        for (id, instances) in &self.resources {
+            match other.resources.get(id) {
+                Some(other_instances) => {
+                    if instances != other_instances {
+                        return false;
+                    }
+                }
+                None => return false,
+            }
+        }
+        true
+    }
+}
+
+impl Eq for TaskResourceInstances {}
+
+impl fmt::Debug for TaskResourceInstances {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let parts: Vec<String> = self
+            .resources
+            .iter()
+            .map(|(id, instances)| {
+                let vals: Vec<String> = instances.iter().map(|v| v.to_double().to_string()).collect();
+                format!("{}: [{}]", id.to_string(), vals.join(", "))
+            })
+            .collect();
+        write!(f, "TaskResourceInstances{{{}}}", parts.join(", "))
+    }
+}
+
+// ============================================================================
+// NodeResourceInstanceSet
+// ============================================================================
+
+/// Node resource instance set tracking per-instance resource availability.
+/// For unit resources like GPU, tracks each GPU instance separately.
+/// For non-unit resources like CPU, uses a single aggregate value.
+/// Supports allocation with placement group constraints.
+#[derive(Clone, Default)]
+pub struct NodeResourceInstanceSet {
+    resources: HashMap<ResourceId, Vec<FixedPoint>>,
+}
+
+impl NodeResourceInstanceSet {
+    /// Create an empty NodeResourceInstanceSet.
+    pub fn new() -> Self {
+        Self {
+            resources: HashMap::new(),
+        }
+    }
+
+    /// Create NodeResourceInstanceSet from a NodeResourceSet.
+    pub fn from_node_resource_set(node_set: &NodeResourceSet) -> Self {
+        let mut instance_set = Self::new();
+        for (&id, &value) in &node_set.resources {
+            if id.is_unit_instance() {
+                // Split into individual unit instances
+                let count = value.to_double() as usize;
+                let mut vec = Vec::with_capacity(count);
+                for _ in 0..count {
+                    vec.push(FixedPoint::from_int(1));
+                }
+                instance_set.resources.insert(id, vec);
+            } else {
+                // Non-unit resource: single aggregate value
+                instance_set.resources.insert(id, vec![value]);
+            }
+        }
+        instance_set
+    }
+
+    /// Check if a resource exists.
+    /// Returns true for implicit resources even if not explicitly stored.
+    pub fn has(&self, resource_id: ResourceId) -> bool {
+        if self.resources.contains_key(&resource_id) {
+            return true;
+        }
+        // Implicit resources always exist
+        resource_id.is_implicit()
+    }
+
+    /// Get the instances for a resource.
+    /// Returns default [1] for implicit resources not explicitly stored.
+    pub fn get(&self, resource_id: ResourceId) -> Vec<FixedPoint> {
+        if let Some(instances) = self.resources.get(&resource_id) {
+            return instances.clone();
+        }
+        // Implicit resources default to [1]
+        if resource_id.is_implicit() {
+            return vec![FixedPoint::from_int(1)];
+        }
+        Vec::new()
+    }
+
+    /// Set the instances for a resource.
+    pub fn set(&mut self, resource_id: ResourceId, instances: Vec<FixedPoint>) {
+        self.resources.insert(resource_id, instances);
+    }
+
+    /// Remove a resource.
+    pub fn remove(&mut self, resource_id: ResourceId) {
+        self.resources.remove(&resource_id);
+    }
+
+    /// Get the sum of all instances for a resource.
+    pub fn sum(&self, resource_id: ResourceId) -> f64 {
+        if let Some(instances) = self.resources.get(&resource_id) {
+            return FixedPoint::sum(instances).to_double();
+        }
+        // Implicit resources default to 1
+        if resource_id.is_implicit() {
+            return 1.0;
+        }
+        0.0
+    }
+
+    /// Get all explicitly stored resources.
+    pub fn resources(&self) -> &HashMap<ResourceId, Vec<FixedPoint>> {
+        &self.resources
+    }
+
+    /// Try to allocate resources from this set.
+    /// Returns Some(allocations) if successful, None if allocation fails.
+    /// The allocations map shows what was allocated from each resource.
+    pub fn try_allocate(&mut self, request: &ResourceSet) -> Option<HashMap<ResourceId, Vec<FixedPoint>>> {
+        // First, check if allocation is possible for all resources
+        let mut allocations: HashMap<ResourceId, Vec<FixedPoint>> = HashMap::new();
+
+        for (&resource_id, &requested) in request.resources() {
+            let allocation = self.try_allocate_single(resource_id, requested)?;
+            allocations.insert(resource_id, allocation);
+        }
+
+        // All allocations succeeded, now apply them
+        for (resource_id, allocation) in &allocations {
+            self.subtract_allocation(*resource_id, allocation);
+        }
+
+        Some(allocations)
+    }
+
+    /// Try to allocate a single resource.
+    /// Returns the allocation vector if successful, None if not enough resources.
+    fn try_allocate_single(&self, resource_id: ResourceId, requested: FixedPoint) -> Option<Vec<FixedPoint>> {
+        let instances = self.get(resource_id);
+
+        if instances.is_empty() {
+            if requested.is_positive() {
+                return None;
+            }
+            return Some(Vec::new());
+        }
+
+        if resource_id.is_unit_instance() {
+            // Unit resource: allocate from individual instances
+            self.try_allocate_unit_resource(&instances, requested)
+        } else {
+            // Non-unit resource: allocate from aggregate
+            self.try_allocate_non_unit_resource(&instances, requested)
+        }
+    }
+
+    /// Try to allocate from a unit resource (e.g., GPU).
+    fn try_allocate_unit_resource(&self, instances: &[FixedPoint], requested: FixedPoint) -> Option<Vec<FixedPoint>> {
+        let mut allocation = vec![FixedPoint::zero(); instances.len()];
+        let mut remaining = requested;
+
+        // Best-fit allocation: prefer instances with just enough capacity
+        let mut indices: Vec<usize> = (0..instances.len()).collect();
+        indices.sort_by(|&a, &b| instances[a].cmp(&instances[b]));
+
+        for &idx in &indices {
+            if remaining <= FixedPoint::zero() {
+                break;
+            }
+            let available = instances[idx];
+            if available > FixedPoint::zero() {
+                let to_allocate = if available >= remaining {
+                    remaining
+                } else {
+                    available
+                };
+                allocation[idx] = to_allocate;
+                remaining = remaining - to_allocate;
+            }
+        }
+
+        if remaining > FixedPoint::zero() {
+            return None;
+        }
+
+        Some(allocation)
+    }
+
+    /// Try to allocate from a non-unit resource (e.g., CPU).
+    fn try_allocate_non_unit_resource(&self, instances: &[FixedPoint], requested: FixedPoint) -> Option<Vec<FixedPoint>> {
+        if instances.is_empty() {
+            if requested.is_positive() {
+                return None;
+            }
+            return Some(Vec::new());
+        }
+
+        let available = instances[0];
+        if available < requested {
+            return None;
+        }
+
+        Some(vec![requested])
+    }
+
+    /// Subtract an allocation from the instances.
+    fn subtract_allocation(&mut self, resource_id: ResourceId, allocation: &[FixedPoint]) {
+        if let Some(instances) = self.resources.get_mut(&resource_id) {
+            for (i, &alloc) in allocation.iter().enumerate() {
+                if i < instances.len() {
+                    instances[i] = instances[i] - alloc;
+                }
+            }
+        }
+    }
+
+    /// Free resources back to the set.
+    pub fn free(&mut self, resource_id: ResourceId, freed: Vec<FixedPoint>) {
+        if let Some(instances) = self.resources.get_mut(&resource_id) {
+            for (i, &f) in freed.iter().enumerate() {
+                if i < instances.len() {
+                    instances[i] = instances[i] + f;
+                }
+            }
+            // Remove implicit resources that return to default (1.0)
+            if resource_id.is_implicit() {
+                if instances.len() == 1 && instances[0] == FixedPoint::from_int(1) {
+                    self.resources.remove(&resource_id);
+                }
+            }
+        } else if !freed.is_empty() {
+            self.resources.insert(resource_id, freed);
+        }
+    }
+
+    /// Add to instances.
+    pub fn add(&mut self, resource_id: ResourceId, to_add: Vec<FixedPoint>) {
+        if let Some(instances) = self.resources.get_mut(&resource_id) {
+            for (i, &a) in to_add.iter().enumerate() {
+                if i < instances.len() {
+                    instances[i] = instances[i] + a;
+                }
+            }
+        } else {
+            self.resources.insert(resource_id, to_add);
+        }
+    }
+
+    /// Subtract from instances.
+    /// Returns the underflow (negative values that would result).
+    pub fn subtract(&mut self, resource_id: ResourceId, to_sub: Vec<FixedPoint>, allow_negative: bool) -> Vec<FixedPoint> {
+        let mut underflow = vec![FixedPoint::zero(); to_sub.len()];
+
+        if let Some(instances) = self.resources.get_mut(&resource_id) {
+            for (i, &s) in to_sub.iter().enumerate() {
+                if i < instances.len() {
+                    let new_val = instances[i] - s;
+                    if allow_negative || new_val >= FixedPoint::zero() {
+                        instances[i] = new_val;
+                    } else {
+                        underflow[i] = -new_val;
+                        instances[i] = FixedPoint::zero();
+                    }
+                }
+            }
+        }
+
+        underflow
+    }
+
+    /// Convert back to a NodeResourceSet.
+    pub fn to_node_resource_set(&self) -> NodeResourceSet {
+        let mut set = NodeResourceSet::new();
+        for (&id, instances) in &self.resources {
+            let total = FixedPoint::sum(instances);
+            set.set(id, total);
+        }
+        set
+    }
+}
+
+impl PartialEq for NodeResourceInstanceSet {
+    fn eq(&self, other: &Self) -> bool {
+        if self.resources.len() != other.resources.len() {
+            return false;
+        }
+        for (id, instances) in &self.resources {
+            match other.resources.get(id) {
+                Some(other_instances) => {
+                    if instances != other_instances {
+                        return false;
+                    }
+                }
+                None => return false,
+            }
+        }
+        true
+    }
+}
+
+impl Eq for NodeResourceInstanceSet {}
+
+impl fmt::Debug for NodeResourceInstanceSet {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let parts: Vec<String> = self
+            .resources
+            .iter()
+            .map(|(id, instances)| {
+                let vals: Vec<String> = instances.iter().map(|v| v.to_double().to_string()).collect();
+                format!("{}: [{}]", id.to_string(), vals.join(", "))
+            })
+            .collect();
+        write!(f, "NodeResourceInstanceSet{{{}}}", parts.join(", "))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -25,6 +25,8 @@ ray-common = { workspace = true }
 thiserror = { workspace = true }
 parking_lot = { workspace = true }
 dashmap = { workspace = true }
+mmap-rs = { workspace = true }
+tempfile = { workspace = true }
 
 [dev-dependencies]
 rstest = { workspace = true }

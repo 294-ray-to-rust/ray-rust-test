@@ -16,15 +16,14 @@ load("@rules_cc//cc:defs.bzl", "cc_test")
 
 package(default_visibility = ["//visibility:public"])
 
-# Test for Rust FFI infrastructure
+# Test for Rust Status FFI (matches status_test.cc)
 cc_test(
-    name = "rust_ffi_test",
-    srcs = ["rust_ffi_test.cc"],
+    name = "rust_status_test",
+    srcs = ["rust_status_test.cc"],
     deps = [
         "//src/ray/ffi:ray_rust_ffi",
         "@com_google_googletest//:gtest",
     ],
-    # Static linkage to avoid dynamic allocator library issues
     linkstatic = True,
     linkopts = [
         "-lpthread",
@@ -33,15 +32,126 @@ cc_test(
     ],
 )
 
-# Test for Rust Plasma/ObjectStore FFI
+# Test for Rust ID FFI (matches id_test.cc)
 cc_test(
-    name = "rust_plasma_test",
-    srcs = ["rust_plasma_test.cc"],
+    name = "rust_id_test",
+    srcs = ["rust_id_test.cc"],
     deps = [
         "//src/ray/ffi:ray_rust_ffi",
         "@com_google_googletest//:gtest",
     ],
-    # Static linkage to avoid dynamic allocator library issues
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust FixedPoint and ResourceId FFI (matches scheduling_ids_test.cc)
+cc_test(
+    name = "rust_scheduling_ids_test",
+    srcs = ["rust_scheduling_ids_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust ResourceSet FFI (matches resource_set_test.cc)
+cc_test(
+    name = "rust_resource_set_test",
+    srcs = ["rust_resource_set_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust ObjectStore FFI (matches object_store_test.cc)
+cc_test(
+    name = "rust_object_store_test",
+    srcs = ["rust_object_store_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust Eviction Policy FFI (matches eviction_policy_test.cc)
+cc_test(
+    name = "rust_eviction_policy_test",
+    srcs = ["rust_eviction_policy_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust ResourceRequest FFI (matches resource_request_test.cc)
+cc_test(
+    name = "rust_resource_request_test",
+    srcs = ["rust_resource_request_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust ResourceInstanceSet FFI (matches resource_instance_set_test.cc)
+cc_test(
+    name = "rust_resource_instance_set_test",
+    srcs = ["rust_resource_instance_set_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust ObjectLifecycleManager and StatsCollector FFI
+cc_test(
+    name = "rust_lifecycle_test",
+    srcs = ["rust_lifecycle_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
     linkstatic = True,
     linkopts = [
         "-lpthread",

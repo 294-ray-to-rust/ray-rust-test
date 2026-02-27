@@ -26,6 +26,7 @@ crate-type = ["staticlib", "rlib"]
 
 [dependencies]
 cxx = { workspace = true }
+parking_lot = { workspace = true }
 ray-common = { workspace = true }
 ray-object-manager = { workspace = true }
 

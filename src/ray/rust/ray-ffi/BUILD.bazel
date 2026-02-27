@@ -24,6 +24,7 @@ ray_rust_library(
         "//src/ray/rust/ray-common:ray_common",
         "//src/ray/rust/ray-object-manager:ray_object_manager",
         "@crate_index//:cxx",
+        "@crate_index//:parking_lot",
     ],
 )
 
@@ -39,6 +40,7 @@ rust_static_library(
         "//src/ray/rust/ray-common:ray_common",
         "//src/ray/rust/ray-object-manager:ray_object_manager",
         "@crate_index//:cxx",
+        "@crate_index//:parking_lot",
     ],
     visibility = ["//visibility:public"],
 )
@@ -54,4 +56,5 @@ exports_files([
     "src/common/id.rs",
     "src/common/scheduling.rs",
     "src/common/plasma.rs",
+    "src/common/lifecycle.rs",
 ])

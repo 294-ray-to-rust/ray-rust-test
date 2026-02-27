@@ -23,7 +23,9 @@ ray_rust_library(
     deps = [
         "//src/ray/rust/ray-common:ray_common",
         "@crate_index//:dashmap",
+        "@crate_index//:mmap-rs",
         "@crate_index//:parking_lot",
+        "@crate_index//:tempfile",
         "@crate_index//:thiserror",
     ],
 )

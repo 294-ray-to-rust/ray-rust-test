@@ -14,7 +14,10 @@
 
 //! FFI bridges for scheduling types.
 
-use ray_common::scheduling::{FixedPoint, NodeResourceSet, ResourceId, ResourceSet};
+use ray_common::scheduling::{
+    FixedPoint, NodeResourceInstanceSet, NodeResourceSet, ResourceId, ResourceRequest,
+    ResourceSet, TaskResourceInstances,
+};
 
 /// Wrapper for FixedPoint for FFI.
 pub struct RustFixedPoint {
@@ -345,6 +348,395 @@ pub fn node_resource_set_eq(a: &RustNodeResourceSet, b: &RustNodeResourceSet) ->
     a.inner() == b.inner()
 }
 
+// ============================================================================
+// ResourceRequest Wrapper and FFI Functions
+// ============================================================================
+
+/// Wrapper for ResourceRequest for FFI.
+pub struct RustResourceRequest {
+    inner: ResourceRequest,
+}
+
+impl RustResourceRequest {
+    pub fn new(inner: ResourceRequest) -> Self {
+        Self { inner }
+    }
+
+    pub fn inner(&self) -> &ResourceRequest {
+        &self.inner
+    }
+
+    pub fn inner_mut(&mut self) -> &mut ResourceRequest {
+        &mut self.inner
+    }
+}
+
+/// Create an empty ResourceRequest.
+pub fn resource_request_new() -> Box<RustResourceRequest> {
+    Box::new(RustResourceRequest::new(ResourceRequest::new()))
+}
+
+/// Get a resource value.
+pub fn resource_request_get(
+    req: &RustResourceRequest,
+    id: &RustResourceId,
+) -> Box<RustFixedPoint> {
+    Box::new(RustFixedPoint::new(req.inner().get(*id.inner())))
+}
+
+/// Set a resource value.
+pub fn resource_request_set(
+    req: &mut RustResourceRequest,
+    id: &RustResourceId,
+    value: &RustFixedPoint,
+) {
+    req.inner_mut().set(*id.inner(), *value.inner());
+}
+
+/// Check if a resource exists.
+pub fn resource_request_has(req: &RustResourceRequest, id: &RustResourceId) -> bool {
+    req.inner().has(*id.inner())
+}
+
+/// Get the size.
+pub fn resource_request_size(req: &RustResourceRequest) -> usize {
+    req.inner().size()
+}
+
+/// Check if empty.
+pub fn resource_request_is_empty(req: &RustResourceRequest) -> bool {
+    req.inner().is_empty()
+}
+
+/// Clear the request.
+pub fn resource_request_clear(req: &mut RustResourceRequest) {
+    req.inner_mut().clear();
+}
+
+/// Check equality.
+pub fn resource_request_eq(a: &RustResourceRequest, b: &RustResourceRequest) -> bool {
+    a.inner() == b.inner()
+}
+
+/// Check if a <= b (less or equal comparison for scheduling).
+pub fn resource_request_le(a: &RustResourceRequest, b: &RustResourceRequest) -> bool {
+    a.inner().is_less_or_equal(b.inner())
+}
+
+/// Check if a >= b (greater or equal comparison for scheduling).
+pub fn resource_request_ge(a: &RustResourceRequest, b: &RustResourceRequest) -> bool {
+    a.inner().is_greater_or_equal(b.inner())
+}
+
+/// Add two ResourceRequests.
+pub fn resource_request_add(
+    a: &RustResourceRequest,
+    b: &RustResourceRequest,
+) -> Box<RustResourceRequest> {
+    Box::new(RustResourceRequest::new(
+        a.inner().clone() + b.inner().clone(),
+    ))
+}
+
+/// Subtract two ResourceRequests.
+pub fn resource_request_sub(
+    a: &RustResourceRequest,
+    b: &RustResourceRequest,
+) -> Box<RustResourceRequest> {
+    Box::new(RustResourceRequest::new(
+        a.inner().clone() - b.inner().clone(),
+    ))
+}
+
+/// Get the number of resource IDs in the request (for iteration).
+pub fn resource_request_resource_id_count(req: &RustResourceRequest) -> usize {
+    req.inner().size()
+}
+
+/// Get resource ID at index (for iteration). Returns as int64.
+pub fn resource_request_resource_id_at(req: &RustResourceRequest, index: usize) -> i64 {
+    req.inner()
+        .resource_ids()
+        .nth(index)
+        .map(|id| id.to_int())
+        .unwrap_or(-1)
+}
+
+/// Convert to a resource map as a string (for debugging/comparison).
+pub fn resource_request_to_string_map(req: &RustResourceRequest) -> String {
+    let map = req.inner().to_resource_map();
+    let parts: Vec<String> = map.iter().map(|(k, v)| format!("{}:{}", k, v)).collect();
+    parts.join(",")
+}
+
+// ============================================================================
+// TaskResourceInstances Wrapper and FFI Functions
+// ============================================================================
+
+/// Wrapper for TaskResourceInstances for FFI.
+pub struct RustTaskResourceInstances {
+    inner: TaskResourceInstances,
+}
+
+impl RustTaskResourceInstances {
+    pub fn new(inner: TaskResourceInstances) -> Self {
+        Self { inner }
+    }
+
+    pub fn inner(&self) -> &TaskResourceInstances {
+        &self.inner
+    }
+
+    pub fn inner_mut(&mut self) -> &mut TaskResourceInstances {
+        &mut self.inner
+    }
+}
+
+/// Create an empty TaskResourceInstances.
+pub fn task_resource_instances_new() -> Box<RustTaskResourceInstances> {
+    Box::new(RustTaskResourceInstances::new(TaskResourceInstances::new()))
+}
+
+/// Create TaskResourceInstances from a ResourceSet.
+pub fn task_resource_instances_from_resource_set(
+    set: &RustResourceSet,
+) -> Box<RustTaskResourceInstances> {
+    Box::new(RustTaskResourceInstances::new(
+        TaskResourceInstances::from_resource_set(set.inner()),
+    ))
+}
+
+/// Check if a resource exists.
+pub fn task_resource_instances_has(
+    inst: &RustTaskResourceInstances,
+    id: &RustResourceId,
+) -> bool {
+    inst.inner().has(*id.inner())
+}
+
+/// Get the number of instances for a resource.
+pub fn task_resource_instances_get_count(
+    inst: &RustTaskResourceInstances,
+    id: &RustResourceId,
+) -> usize {
+    inst.inner().get(*id.inner()).len()
+}
+
+/// Get instance value at index for a resource.
+pub fn task_resource_instances_get_at(
+    inst: &RustTaskResourceInstances,
+    id: &RustResourceId,
+    index: usize,
+) -> f64 {
+    let instances = inst.inner().get(*id.inner());
+    instances.get(index).map(|fp| fp.to_double()).unwrap_or(0.0)
+}
+
+/// Set instances for a resource from an array of doubles.
+pub fn task_resource_instances_set(
+    inst: &mut RustTaskResourceInstances,
+    id: &RustResourceId,
+    values: &[f64],
+) {
+    let instances: Vec<FixedPoint> = values.iter().map(|&d| FixedPoint::from_double(d)).collect();
+    inst.inner_mut().set(*id.inner(), instances);
+}
+
+/// Remove a resource.
+pub fn task_resource_instances_remove(inst: &mut RustTaskResourceInstances, id: &RustResourceId) {
+    inst.inner_mut().remove(*id.inner());
+}
+
+/// Get the number of resources.
+pub fn task_resource_instances_size(inst: &RustTaskResourceInstances) -> usize {
+    inst.inner().size()
+}
+
+/// Check if empty.
+pub fn task_resource_instances_is_empty(inst: &RustTaskResourceInstances) -> bool {
+    inst.inner().is_empty()
+}
+
+/// Get the sum of all instances for a resource.
+pub fn task_resource_instances_sum(inst: &RustTaskResourceInstances, id: &RustResourceId) -> f64 {
+    inst.inner().sum(*id.inner()).to_double()
+}
+
+/// Get the number of resource IDs (for iteration).
+pub fn task_resource_instances_resource_id_count(inst: &RustTaskResourceInstances) -> usize {
+    inst.inner().size()
+}
+
+/// Get resource ID at index (for iteration). Returns as int64.
+pub fn task_resource_instances_resource_id_at(
+    inst: &RustTaskResourceInstances,
+    index: usize,
+) -> i64 {
+    inst.inner()
+        .resource_ids()
+        .nth(index)
+        .map(|id| id.to_int())
+        .unwrap_or(-1)
+}
+
+/// Convert to ResourceSet.
+pub fn task_resource_instances_to_resource_set(
+    inst: &RustTaskResourceInstances,
+) -> Box<RustResourceSet> {
+    Box::new(RustResourceSet::new(inst.inner().to_resource_set()))
+}
+
+/// Check equality.
+pub fn task_resource_instances_eq(
+    a: &RustTaskResourceInstances,
+    b: &RustTaskResourceInstances,
+) -> bool {
+    a.inner() == b.inner()
+}
+
+// ============================================================================
+// NodeResourceInstanceSet Wrapper and FFI Functions
+// ============================================================================
+
+/// Wrapper for NodeResourceInstanceSet for FFI.
+pub struct RustNodeResourceInstanceSet {
+    inner: NodeResourceInstanceSet,
+}
+
+impl RustNodeResourceInstanceSet {
+    pub fn new(inner: NodeResourceInstanceSet) -> Self {
+        Self { inner }
+    }
+
+    pub fn inner(&self) -> &NodeResourceInstanceSet {
+        &self.inner
+    }
+
+    pub fn inner_mut(&mut self) -> &mut NodeResourceInstanceSet {
+        &mut self.inner
+    }
+}
+
+/// Create an empty NodeResourceInstanceSet.
+pub fn node_resource_instance_set_new() -> Box<RustNodeResourceInstanceSet> {
+    Box::new(RustNodeResourceInstanceSet::new(
+        NodeResourceInstanceSet::new(),
+    ))
+}
+
+/// Create NodeResourceInstanceSet from a NodeResourceSet.
+pub fn node_resource_instance_set_from_node_resource_set(
+    set: &RustNodeResourceSet,
+) -> Box<RustNodeResourceInstanceSet> {
+    Box::new(RustNodeResourceInstanceSet::new(
+        NodeResourceInstanceSet::from_node_resource_set(set.inner()),
+    ))
+}
+
+/// Check if a resource exists.
+pub fn node_resource_instance_set_has(
+    inst: &RustNodeResourceInstanceSet,
+    id: &RustResourceId,
+) -> bool {
+    inst.inner().has(*id.inner())
+}
+
+/// Get the number of instances for a resource.
+pub fn node_resource_instance_set_get_count(
+    inst: &RustNodeResourceInstanceSet,
+    id: &RustResourceId,
+) -> usize {
+    inst.inner().get(*id.inner()).len()
+}
+
+/// Get instance value at index for a resource.
+pub fn node_resource_instance_set_get_at(
+    inst: &RustNodeResourceInstanceSet,
+    id: &RustResourceId,
+    index: usize,
+) -> f64 {
+    let instances = inst.inner().get(*id.inner());
+    instances.get(index).map(|fp| fp.to_double()).unwrap_or(0.0)
+}
+
+/// Set instances for a resource from an array of doubles.
+pub fn node_resource_instance_set_set(
+    inst: &mut RustNodeResourceInstanceSet,
+    id: &RustResourceId,
+    values: &[f64],
+) {
+    let instances: Vec<FixedPoint> = values.iter().map(|&d| FixedPoint::from_double(d)).collect();
+    inst.inner_mut().set(*id.inner(), instances);
+}
+
+/// Remove a resource.
+pub fn node_resource_instance_set_remove(
+    inst: &mut RustNodeResourceInstanceSet,
+    id: &RustResourceId,
+) {
+    inst.inner_mut().remove(*id.inner());
+}
+
+/// Get the sum of all instances for a resource.
+pub fn node_resource_instance_set_sum(
+    inst: &RustNodeResourceInstanceSet,
+    id: &RustResourceId,
+) -> f64 {
+    inst.inner().sum(*id.inner())
+}
+
+/// Check equality.
+pub fn node_resource_instance_set_eq(
+    a: &RustNodeResourceInstanceSet,
+    b: &RustNodeResourceInstanceSet,
+) -> bool {
+    a.inner() == b.inner()
+}
+
+/// Add to instances.
+pub fn node_resource_instance_set_add(
+    inst: &mut RustNodeResourceInstanceSet,
+    id: &RustResourceId,
+    values: &[f64],
+) {
+    let to_add: Vec<FixedPoint> = values.iter().map(|&d| FixedPoint::from_double(d)).collect();
+    inst.inner_mut().add(*id.inner(), to_add);
+}
+
+/// Subtract from instances (allowing negative values).
+pub fn node_resource_instance_set_subtract(
+    inst: &mut RustNodeResourceInstanceSet,
+    id: &RustResourceId,
+    values: &[f64],
+    allow_negative: bool,
+) {
+    let to_sub: Vec<FixedPoint> = values.iter().map(|&d| FixedPoint::from_double(d)).collect();
+    inst.inner_mut().subtract(*id.inner(), to_sub, allow_negative);
+}
+
+/// Free resources back to the set.
+pub fn node_resource_instance_set_free(
+    inst: &mut RustNodeResourceInstanceSet,
+    id: &RustResourceId,
+    values: &[f64],
+) {
+    let freed: Vec<FixedPoint> = values.iter().map(|&d| FixedPoint::from_double(d)).collect();
+    inst.inner_mut().free(*id.inner(), freed);
+}
+
+/// Get the number of resources stored (for iteration).
+pub fn node_resource_instance_set_resource_count(inst: &RustNodeResourceInstanceSet) -> usize {
+    inst.inner().resources().len()
+}
+
+/// Try to allocate resources. Returns true if successful.
+pub fn node_resource_instance_set_try_allocate(
+    inst: &mut RustNodeResourceInstanceSet,
+    request: &RustResourceSet,
+) -> bool {
+    inst.inner_mut().try_allocate(request.inner()).is_some()
+}
+
 #[cxx::bridge(namespace = "ray::ffi")]
 mod ffi {
     extern "Rust" {
@@ -424,6 +816,145 @@ mod ffi {
         fn node_resource_set_remove_negative(set: &mut RustNodeResourceSet);
         fn node_resource_set_debug_string(set: &RustNodeResourceSet) -> String;
         fn node_resource_set_eq(a: &RustNodeResourceSet, b: &RustNodeResourceSet) -> bool;
+
+        // ResourceRequest types and functions
+        type RustResourceRequest;
+
+        fn resource_request_new() -> Box<RustResourceRequest>;
+        fn resource_request_get(
+            req: &RustResourceRequest,
+            id: &RustResourceId,
+        ) -> Box<RustFixedPoint>;
+        fn resource_request_set(
+            req: &mut RustResourceRequest,
+            id: &RustResourceId,
+            value: &RustFixedPoint,
+        );
+        fn resource_request_has(req: &RustResourceRequest, id: &RustResourceId) -> bool;
+        fn resource_request_size(req: &RustResourceRequest) -> usize;
+        fn resource_request_is_empty(req: &RustResourceRequest) -> bool;
+        fn resource_request_clear(req: &mut RustResourceRequest);
+        fn resource_request_eq(a: &RustResourceRequest, b: &RustResourceRequest) -> bool;
+        fn resource_request_le(a: &RustResourceRequest, b: &RustResourceRequest) -> bool;
+        fn resource_request_ge(a: &RustResourceRequest, b: &RustResourceRequest) -> bool;
+        fn resource_request_add(
+            a: &RustResourceRequest,
+            b: &RustResourceRequest,
+        ) -> Box<RustResourceRequest>;
+        fn resource_request_sub(
+            a: &RustResourceRequest,
+            b: &RustResourceRequest,
+        ) -> Box<RustResourceRequest>;
+        fn resource_request_resource_id_count(req: &RustResourceRequest) -> usize;
+        fn resource_request_resource_id_at(req: &RustResourceRequest, index: usize) -> i64;
+        fn resource_request_to_string_map(req: &RustResourceRequest) -> String;
+
+        // TaskResourceInstances types and functions
+        type RustTaskResourceInstances;
+
+        fn task_resource_instances_new() -> Box<RustTaskResourceInstances>;
+        fn task_resource_instances_from_resource_set(
+            set: &RustResourceSet,
+        ) -> Box<RustTaskResourceInstances>;
+        fn task_resource_instances_has(
+            inst: &RustTaskResourceInstances,
+            id: &RustResourceId,
+        ) -> bool;
+        fn task_resource_instances_get_count(
+            inst: &RustTaskResourceInstances,
+            id: &RustResourceId,
+        ) -> usize;
+        fn task_resource_instances_get_at(
+            inst: &RustTaskResourceInstances,
+            id: &RustResourceId,
+            index: usize,
+        ) -> f64;
+        fn task_resource_instances_set(
+            inst: &mut RustTaskResourceInstances,
+            id: &RustResourceId,
+            values: &[f64],
+        );
+        fn task_resource_instances_remove(
+            inst: &mut RustTaskResourceInstances,
+            id: &RustResourceId,
+        );
+        fn task_resource_instances_size(inst: &RustTaskResourceInstances) -> usize;
+        fn task_resource_instances_is_empty(inst: &RustTaskResourceInstances) -> bool;
+        fn task_resource_instances_sum(
+            inst: &RustTaskResourceInstances,
+            id: &RustResourceId,
+        ) -> f64;
+        fn task_resource_instances_resource_id_count(inst: &RustTaskResourceInstances) -> usize;
+        fn task_resource_instances_resource_id_at(
+            inst: &RustTaskResourceInstances,
+            index: usize,
+        ) -> i64;
+        fn task_resource_instances_to_resource_set(
+            inst: &RustTaskResourceInstances,
+        ) -> Box<RustResourceSet>;
+        fn task_resource_instances_eq(
+            a: &RustTaskResourceInstances,
+            b: &RustTaskResourceInstances,
+        ) -> bool;
+
+        // NodeResourceInstanceSet types and functions
+        type RustNodeResourceInstanceSet;
+
+        fn node_resource_instance_set_new() -> Box<RustNodeResourceInstanceSet>;
+        fn node_resource_instance_set_from_node_resource_set(
+            set: &RustNodeResourceSet,
+        ) -> Box<RustNodeResourceInstanceSet>;
+        fn node_resource_instance_set_has(
+            inst: &RustNodeResourceInstanceSet,
+            id: &RustResourceId,
+        ) -> bool;
+        fn node_resource_instance_set_get_count(
+            inst: &RustNodeResourceInstanceSet,
+            id: &RustResourceId,
+        ) -> usize;
+        fn node_resource_instance_set_get_at(
+            inst: &RustNodeResourceInstanceSet,
+            id: &RustResourceId,
+            index: usize,
+        ) -> f64;
+        fn node_resource_instance_set_set(
+            inst: &mut RustNodeResourceInstanceSet,
+            id: &RustResourceId,
+            values: &[f64],
+        );
+        fn node_resource_instance_set_remove(
+            inst: &mut RustNodeResourceInstanceSet,
+            id: &RustResourceId,
+        );
+        fn node_resource_instance_set_sum(
+            inst: &RustNodeResourceInstanceSet,
+            id: &RustResourceId,
+        ) -> f64;
+        fn node_resource_instance_set_eq(
+            a: &RustNodeResourceInstanceSet,
+            b: &RustNodeResourceInstanceSet,
+        ) -> bool;
+        fn node_resource_instance_set_add(
+            inst: &mut RustNodeResourceInstanceSet,
+            id: &RustResourceId,
+            values: &[f64],
+        );
+        fn node_resource_instance_set_subtract(
+            inst: &mut RustNodeResourceInstanceSet,
+            id: &RustResourceId,
+            values: &[f64],
+            allow_negative: bool,
+        );
+        fn node_resource_instance_set_free(
+            inst: &mut RustNodeResourceInstanceSet,
+            id: &RustResourceId,
+            values: &[f64],
+        );
+        fn node_resource_instance_set_resource_count(inst: &RustNodeResourceInstanceSet) -> usize;
+        fn node_resource_instance_set_try_allocate(
+            inst: &mut RustNodeResourceInstanceSet,
+            request: &RustResourceSet,
+        ) -> bool;
     }
 }
 

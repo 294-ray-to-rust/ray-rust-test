@@ -28,8 +28,10 @@ pub use id::{
     PlacementGroupId, RayId, TaskId, UniqueId, WorkerId,
 };
 pub use scheduling::{
-    FixedPoint, NodeResourceSet, ResourceId, ResourceSet, StringIdMap,
+    FixedPoint, NodeResourceInstanceSet, NodeResourceSet, ResourceId, ResourceRequest,
+    ResourceSet, StringIdMap, TaskResourceInstances,
     RESOURCE_UNIT_SCALING, CPU_RESOURCE_LABEL, GPU_RESOURCE_LABEL,
-    MEMORY_RESOURCE_LABEL, OBJECT_STORE_MEMORY_RESOURCE_LABEL,
+    MEMORY_RESOURCE_LABEL, OBJECT_STORE_MEMORY_RESOURCE_LABEL, IMPLICIT_RESOURCE_PREFIX,
+    fixed_point_vector_from_double, fixed_point_vector_to_double,
 };
 pub use status::{RayError, Result, StatusCode};

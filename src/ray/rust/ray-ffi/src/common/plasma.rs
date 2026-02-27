@@ -16,15 +16,19 @@
 
 use ray_common::id::RayId;
 use ray_common::ObjectId;
+use ray_object_manager::plasma::LRUCache;
 use ray_object_manager::{ObjectSource, ObjectState, ObjectStore, ObjectStoreConfig, PlasmaError};
 
-/// FFI-safe wrapper for ObjectState.
+/// FFI-safe wrapper for ObjectState (reserved for future use).
+#[allow(dead_code)]
 pub struct RustObjectState(ObjectState);
 
-/// FFI-safe wrapper for ObjectSource.
+/// FFI-safe wrapper for ObjectSource (reserved for future use).
+#[allow(dead_code)]
 pub struct RustObjectSource(ObjectSource);
 
-/// FFI-safe wrapper for PlasmaError.
+/// FFI-safe wrapper for PlasmaError (reserved for future use).
+#[allow(dead_code)]
 pub struct RustPlasmaError {
     code: u8,
     message: String,
@@ -33,6 +37,13 @@ pub struct RustPlasmaError {
 /// FFI-safe wrapper for ObjectStore.
 pub struct RustObjectStore {
     inner: ObjectStore,
+}
+
+/// FFI-safe wrapper for LRUCache.
+pub struct RustLRUCache {
+    inner: std::cell::RefCell<LRUCache>,
+    /// Buffer to store eviction results for retrieval
+    eviction_buffer: std::cell::RefCell<Vec<ObjectId>>,
 }
 
 /// FFI-safe wrapper for ObjectStoreStats snapshot.
@@ -73,6 +84,7 @@ mod ffi {
         type RustObjectStore;
         type RustPlasmaResult;
         type RustObjectStoreStats;
+        type RustLRUCache;
 
         // ObjectStore creation
         fn object_store_new(capacity: usize) -> Box<RustObjectStore>;
@@ -143,6 +155,32 @@ mod ffi {
         fn plasma_result_success(result: &RustPlasmaResult) -> bool;
         fn plasma_result_error_code(result: &RustPlasmaResult) -> u8;
         fn plasma_result_error_message(result: &RustPlasmaResult) -> &str;
+
+        // LRUCache creation and operations
+        fn lru_cache_new(name: &str, capacity: i64) -> Box<RustLRUCache>;
+        fn lru_cache_add(cache: &RustLRUCache, object_id_bytes: &[u8], size: i64);
+        fn lru_cache_remove(cache: &RustLRUCache, object_id_bytes: &[u8]) -> i64;
+        fn lru_cache_capacity(cache: &RustLRUCache) -> i64;
+        fn lru_cache_original_capacity(cache: &RustLRUCache) -> i64;
+        fn lru_cache_remaining_capacity(cache: &RustLRUCache) -> i64;
+        fn lru_cache_adjust_capacity(cache: &RustLRUCache, delta: i64);
+        fn lru_cache_exists(cache: &RustLRUCache, object_id_bytes: &[u8]) -> bool;
+        fn lru_cache_len(cache: &RustLRUCache) -> usize;
+        fn lru_cache_is_empty(cache: &RustLRUCache) -> bool;
+        // Returns the total bytes that would be evicted and stores the object IDs
+        // in the cache's internal eviction buffer for subsequent retrieval
+        fn lru_cache_choose_objects_to_evict(
+            cache: &RustLRUCache,
+            num_bytes_required: i64,
+        ) -> i64;
+        // Get the count of objects chosen for eviction (after calling choose_objects_to_evict)
+        fn lru_cache_eviction_count(cache: &RustLRUCache) -> usize;
+        // Get the nth object ID bytes from the eviction buffer (28 bytes per ObjectId)
+        fn lru_cache_get_evicted_object(cache: &RustLRUCache, index: usize) -> Vec<u8>;
+        // Get the count of all keys
+        fn lru_cache_key_count(cache: &RustLRUCache) -> usize;
+        // Get the nth key's bytes
+        fn lru_cache_get_key(cache: &RustLRUCache, index: usize) -> Vec<u8>;
     }
 }
 
@@ -382,6 +420,91 @@ fn plasma_result_error_message(result: &RustPlasmaResult) -> &str {
     &result.error_message
 }
 
+// LRUCache FFI implementation
+fn lru_cache_new(name: &str, capacity: i64) -> Box<RustLRUCache> {
+    Box::new(RustLRUCache {
+        inner: std::cell::RefCell::new(LRUCache::new(name.to_string(), capacity)),
+        eviction_buffer: std::cell::RefCell::new(Vec::new()),
+    })
+}
+
+fn lru_cache_add(cache: &RustLRUCache, object_id_bytes: &[u8], size: i64) {
+    let object_id = bytes_to_object_id(object_id_bytes);
+    cache.inner.borrow_mut().add(object_id, size);
+}
+
+fn lru_cache_remove(cache: &RustLRUCache, object_id_bytes: &[u8]) -> i64 {
+    let object_id = bytes_to_object_id(object_id_bytes);
+    cache.inner.borrow_mut().remove(&object_id)
+}
+
+fn lru_cache_capacity(cache: &RustLRUCache) -> i64 {
+    cache.inner.borrow().capacity()
+}
+
+fn lru_cache_original_capacity(cache: &RustLRUCache) -> i64 {
+    cache.inner.borrow().original_capacity()
+}
+
+fn lru_cache_remaining_capacity(cache: &RustLRUCache) -> i64 {
+    cache.inner.borrow().remaining_capacity()
+}
+
+fn lru_cache_adjust_capacity(cache: &RustLRUCache, delta: i64) {
+    cache.inner.borrow_mut().adjust_capacity(delta);
+}
+
+fn lru_cache_exists(cache: &RustLRUCache, object_id_bytes: &[u8]) -> bool {
+    let object_id = bytes_to_object_id(object_id_bytes);
+    cache.inner.borrow().exists(&object_id)
+}
+
+fn lru_cache_len(cache: &RustLRUCache) -> usize {
+    cache.inner.borrow().len()
+}
+
+fn lru_cache_is_empty(cache: &RustLRUCache) -> bool {
+    cache.inner.borrow().is_empty()
+}
+
+fn lru_cache_choose_objects_to_evict(cache: &RustLRUCache, num_bytes_required: i64) -> i64 {
+    let mut objects_to_evict = Vec::new();
+    let total_bytes = cache
+        .inner
+        .borrow()
+        .choose_objects_to_evict(num_bytes_required, &mut objects_to_evict);
+    // Store in buffer for later retrieval
+    *cache.eviction_buffer.borrow_mut() = objects_to_evict;
+    total_bytes
+}
+
+fn lru_cache_eviction_count(cache: &RustLRUCache) -> usize {
+    cache.eviction_buffer.borrow().len()
+}
+
+fn lru_cache_get_evicted_object(cache: &RustLRUCache, index: usize) -> Vec<u8> {
+    cache
+        .eviction_buffer
+        .borrow()
+        .get(index)
+        .map(|id| id.to_binary().to_vec())
+        .unwrap_or_default()
+}
+
+fn lru_cache_key_count(cache: &RustLRUCache) -> usize {
+    cache.inner.borrow().len()
+}
+
+fn lru_cache_get_key(cache: &RustLRUCache, index: usize) -> Vec<u8> {
+    cache
+        .inner
+        .borrow()
+        .get_all_keys()
+        .get(index)
+        .map(|id| id.to_binary().to_vec())
+        .unwrap_or_default()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -398,7 +521,7 @@ mod tests {
         let store = object_store_new(1024 * 1024);
 
         let object_id = ObjectId::from_random();
-        let id_bytes = object_id.binary();
+        let id_bytes = object_id.to_binary();
 
         let result = object_store_create_object(&store, &id_bytes, 100, 0, 0, &[]);
         assert!(plasma_result_success(&result));
@@ -416,7 +539,7 @@ mod tests {
         let store = object_store_new(100);
 
         let object_id = ObjectId::from_random();
-        let id_bytes = object_id.binary();
+        let id_bytes = object_id.to_binary();
 
         // Try to create object larger than capacity
         let result = object_store_create_object(&store, &id_bytes, 200, 0, 0, &[]);

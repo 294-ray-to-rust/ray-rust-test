@@ -16,6 +16,9 @@
 
 pub mod allocator;
 pub mod common;
+pub mod eviction;
+pub mod lifecycle;
+pub mod stats;
 pub mod store;
 
 // Re-export types from common
@@ -25,7 +28,16 @@ pub use common::{
 };
 
 // Re-export types from allocator
-pub use allocator::{Allocator, AllocatorStats, HeapAllocator, NullAllocator};
+pub use allocator::{Allocator, AllocatorStats, HeapAllocator, NullAllocator, PlasmaAllocator};
 
 // Re-export types from store
 pub use store::{ObjectRef, ObjectStore, ObjectStoreConfig, ObjectStoreStats};
+
+// Re-export types from eviction
+pub use eviction::{AllocatorView, EvictionPolicy, LRUCache, LRUEvictionPolicy, ObjectStoreView};
+
+// Re-export types from stats
+pub use stats::ObjectStatsCollector;
+
+// Re-export types from lifecycle
+pub use lifecycle::ObjectLifecycleManager;

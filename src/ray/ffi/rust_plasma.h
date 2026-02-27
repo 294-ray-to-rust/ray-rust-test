@@ -211,4 +211,87 @@ class RustObjectStore {
   rust::Box<ffi::RustObjectStore> impl_;
 };
 
+/// LRU cache for eviction policy, backed by Rust implementation.
+class RustLRUCache {
+ public:
+  /// Create a new LRU cache with the given name and capacity.
+  RustLRUCache(const std::string &name, int64_t capacity)
+      : impl_(ffi::lru_cache_new(rust::Str(name.data(), name.size()), capacity)) {}
+
+  /// Add an object to the cache.
+  void Add(const std::string &object_id_binary, int64_t size) {
+    rust::Slice<const uint8_t> id_slice(
+        reinterpret_cast<const uint8_t *>(object_id_binary.data()),
+        object_id_binary.size());
+    ffi::lru_cache_add(*impl_, id_slice, size);
+  }
+
+  /// Remove an object from the cache. Returns the size of the removed object.
+  int64_t Remove(const std::string &object_id_binary) {
+    rust::Slice<const uint8_t> id_slice(
+        reinterpret_cast<const uint8_t *>(object_id_binary.data()),
+        object_id_binary.size());
+    return ffi::lru_cache_remove(*impl_, id_slice);
+  }
+
+  /// Get the current capacity.
+  int64_t Capacity() const { return ffi::lru_cache_capacity(*impl_); }
+
+  /// Get the original capacity.
+  int64_t OriginalCapacity() const { return ffi::lru_cache_original_capacity(*impl_); }
+
+  /// Get remaining capacity.
+  int64_t RemainingCapacity() const { return ffi::lru_cache_remaining_capacity(*impl_); }
+
+  /// Adjust capacity by delta.
+  void AdjustCapacity(int64_t delta) { ffi::lru_cache_adjust_capacity(*impl_, delta); }
+
+  /// Check if an object exists in the cache.
+  bool Exists(const std::string &object_id_binary) const {
+    rust::Slice<const uint8_t> id_slice(
+        reinterpret_cast<const uint8_t *>(object_id_binary.data()),
+        object_id_binary.size());
+    return ffi::lru_cache_exists(*impl_, id_slice);
+  }
+
+  /// Get the number of objects in the cache.
+  size_t Size() const { return ffi::lru_cache_len(*impl_); }
+
+  /// Check if the cache is empty.
+  bool IsEmpty() const { return ffi::lru_cache_is_empty(*impl_); }
+
+  /// Choose objects to evict to free at least num_bytes_required bytes.
+  /// Returns the total bytes that would be freed by evicting those objects.
+  int64_t ChooseObjectsToEvict(int64_t num_bytes_required,
+                               std::vector<std::string> &objects_to_evict) {
+    // This populates the internal eviction buffer and returns total bytes
+    int64_t total_bytes =
+        ffi::lru_cache_choose_objects_to_evict(*impl_, num_bytes_required);
+
+    // Retrieve object IDs from the buffer
+    size_t count = ffi::lru_cache_eviction_count(*impl_);
+    for (size_t i = 0; i < count; ++i) {
+      rust::Vec<uint8_t> id_bytes = ffi::lru_cache_get_evicted_object(*impl_, i);
+      objects_to_evict.push_back(
+          std::string(reinterpret_cast<const char *>(id_bytes.data()), id_bytes.size()));
+    }
+
+    return total_bytes;
+  }
+
+  /// Iterate over all objects and call the callback for each.
+  template <typename Callback>
+  void Foreach(Callback callback) {
+    size_t count = ffi::lru_cache_key_count(*impl_);
+    for (size_t i = 0; i < count; ++i) {
+      rust::Vec<uint8_t> id_bytes = ffi::lru_cache_get_key(*impl_, i);
+      std::string key(reinterpret_cast<const char *>(id_bytes.data()), id_bytes.size());
+      callback(key);
+    }
+  }
+
+ private:
+  rust::Box<ffi::RustLRUCache> impl_;
+};
+
 }  // namespace ray

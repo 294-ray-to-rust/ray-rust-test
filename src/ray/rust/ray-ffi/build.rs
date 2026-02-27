@@ -22,6 +22,7 @@ fn main() {
         "src/common/id.rs",
         "src/common/scheduling.rs",
         "src/common/plasma.rs",
+        "src/common/lifecycle.rs",
     ])
     .flag_if_supported("-std=c++17")
     .compile("ray_ffi");
@@ -32,5 +33,6 @@ fn main() {
     println!("cargo:rerun-if-changed=src/common/id.rs");
     println!("cargo:rerun-if-changed=src/common/scheduling.rs");
     println!("cargo:rerun-if-changed=src/common/plasma.rs");
+    println!("cargo:rerun-if-changed=src/common/lifecycle.rs");
     println!("cargo:rerun-if-changed=src/callbacks.rs");
 }

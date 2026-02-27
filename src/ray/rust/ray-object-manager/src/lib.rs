@@ -26,3 +26,6 @@ pub use plasma::common::{
     PlasmaObjectHeader, PlasmaResult,
 };
 pub use plasma::store::{ObjectRef, ObjectStore, ObjectStoreConfig, ObjectStoreStats};
+pub use plasma::eviction::{EvictionPolicy, LRUCache};
+pub use plasma::stats::ObjectStatsCollector;
+pub use plasma::lifecycle::ObjectLifecycleManager;
