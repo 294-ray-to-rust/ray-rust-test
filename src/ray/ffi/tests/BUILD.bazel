@@ -159,3 +159,19 @@ cc_test(
         "-lm",
     ],
 )
+
+# Test for Rust PlasmaAllocator FFI (matches fallback_allocator_test.cc)
+cc_test(
+    name = "rust_allocator_test",
+    srcs = ["rust_allocator_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)

@@ -47,6 +47,12 @@ ray_cxx_bridge(
     src = "//src/ray/rust/ray-ffi:src/common/lifecycle.rs",
 )
 
+# CXX bridge for allocator types
+ray_cxx_bridge(
+    name = "allocator_bridge",
+    src = "//src/ray/rust/ray-ffi:src/common/allocator.rs",
+)
+
 # C++ wrapper for Rust Status implementation
 ray_cc_library(
     name = "rust_status",
@@ -104,10 +110,22 @@ ray_cc_library(
     ],
 )
 
+# C++ wrapper for Rust allocator implementations
+ray_cc_library(
+    name = "rust_allocator",
+    hdrs = ["rust_allocator.h"],
+    deps = [
+        ":allocator_bridge",
+        "//src/ray/rust/ray-ffi:ray_ffi_static",
+        "@crate_index//:cxx",
+    ],
+)
+
 # Combined FFI library for convenience
 ray_cc_library(
     name = "ray_rust_ffi",
     deps = [
+        ":rust_allocator",
         ":rust_id",
         ":rust_lifecycle",
         ":rust_plasma",

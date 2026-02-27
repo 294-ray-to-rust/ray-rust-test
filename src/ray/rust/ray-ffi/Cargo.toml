@@ -32,3 +32,6 @@ ray-object-manager = { workspace = true }
 
 [build-dependencies]
 cxx-build = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

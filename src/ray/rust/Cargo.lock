@@ -585,6 +585,7 @@ dependencies = [
  "parking_lot",
  "ray-common",
  "ray-object-manager",
+ "tempfile",
 ]
 
 [[package]]

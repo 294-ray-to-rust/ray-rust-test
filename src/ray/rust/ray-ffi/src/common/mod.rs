@@ -14,6 +14,7 @@
 
 //! Common type FFI bridges.
 
+pub mod allocator;
 pub mod id;
 pub mod lifecycle;
 pub mod plasma;

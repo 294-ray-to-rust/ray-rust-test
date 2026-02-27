@@ -25,6 +25,7 @@ ray_rust_library(
         "//src/ray/rust/ray-object-manager:ray_object_manager",
         "@crate_index//:cxx",
         "@crate_index//:parking_lot",
+        "@crate_index//:tempfile",
     ],
 )
 
@@ -41,6 +42,7 @@ rust_static_library(
         "//src/ray/rust/ray-object-manager:ray_object_manager",
         "@crate_index//:cxx",
         "@crate_index//:parking_lot",
+        "@crate_index//:tempfile",
     ],
     visibility = ["//visibility:public"],
 )
@@ -52,9 +54,10 @@ ray_rust_test(
 
 # Export bridge source files for C++ code generation
 exports_files([
-    "src/common/status.rs",
+    "src/common/allocator.rs",
     "src/common/id.rs",
-    "src/common/scheduling.rs",
-    "src/common/plasma.rs",
     "src/common/lifecycle.rs",
+    "src/common/plasma.rs",
+    "src/common/scheduling.rs",
+    "src/common/status.rs",
 ])
