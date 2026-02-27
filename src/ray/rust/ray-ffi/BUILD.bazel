@@ -22,6 +22,7 @@ ray_rust_library(
     crate_name = "ray_ffi",
     deps = [
         "//src/ray/rust/ray-common:ray_common",
+        "//src/ray/rust/ray-object-manager:ray_object_manager",
         "@crate_index//:cxx",
     ],
 )
@@ -36,6 +37,7 @@ rust_static_library(
     edition = "2021",
     deps = [
         "//src/ray/rust/ray-common:ray_common",
+        "//src/ray/rust/ray-object-manager:ray_object_manager",
         "@crate_index//:cxx",
     ],
     visibility = ["//visibility:public"],
@@ -50,4 +52,6 @@ ray_rust_test(
 exports_files([
     "src/common/status.rs",
     "src/common/id.rs",
+    "src/common/scheduling.rs",
+    "src/common/plasma.rs",
 ])

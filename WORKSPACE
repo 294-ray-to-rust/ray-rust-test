@@ -199,6 +199,7 @@ crates_repository(
         "//src/ray/rust:Cargo.toml",
         "//src/ray/rust/ray-common:Cargo.toml",
         "//src/ray/rust/ray-ffi:Cargo.toml",
+        "//src/ray/rust/ray-object-manager:Cargo.toml",
         "//src/ray/rust/ray-test-utils:Cargo.toml",
     ],
 )

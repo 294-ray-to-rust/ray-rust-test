@@ -45,6 +45,18 @@ const OBJECT_ID_INDEX_BYTES: usize = 4;
 /// Length of ObjectID in bytes (index bytes + TaskID).
 pub const OBJECT_ID_SIZE: usize = OBJECT_ID_INDEX_BYTES + TASK_ID_SIZE;
 
+/// Length of PlacementGroupID unique bytes.
+const PLACEMENT_GROUP_ID_UNIQUE_BYTES: usize = 14;
+
+/// Length of PlacementGroupID in bytes (unique bytes + JobID).
+pub const PLACEMENT_GROUP_ID_SIZE: usize = PLACEMENT_GROUP_ID_UNIQUE_BYTES + JOB_ID_SIZE;
+
+/// Length of LeaseID unique bytes.
+const LEASE_ID_UNIQUE_BYTES: usize = 4;
+
+/// Length of LeaseID in bytes (unique bytes + WorkerID/UniqueID).
+pub const LEASE_ID_SIZE: usize = LEASE_ID_UNIQUE_BYTES + UNIQUE_ID_SIZE;
+
 /// MurmurHash64A implementation matching the C++ version.
 fn murmur_hash_64a(data: &[u8], seed: u64) -> u64 {
     const M: u64 = 0xc6a4a7935bd1e995;
@@ -312,6 +324,31 @@ impl ActorId {
         data[ACTOR_ID_UNIQUE_BYTES..].copy_from_slice(job_id.data());
         Self::new(data)
     }
+
+    /// Create an ActorId by hashing job_id, parent_task_id, and counter.
+    /// This matches the C++ ActorID::Of method.
+    pub fn of(job_id: &JobId, parent_task_id: &TaskId, parent_task_counter: usize) -> Self {
+        let mut data = [0u8; ACTOR_ID_SIZE];
+
+        // Hash the parent task ID and counter to create unique bytes
+        let mut hash_input = Vec::with_capacity(TASK_ID_SIZE + 8);
+        hash_input.extend_from_slice(parent_task_id.data());
+        hash_input.extend_from_slice(&(parent_task_counter as u64).to_le_bytes());
+
+        let hash = murmur_hash_64a(&hash_input, 0);
+        let hash_bytes = hash.to_le_bytes();
+
+        // Fill unique bytes with hash
+        data[..8].copy_from_slice(&hash_bytes);
+        // Fill remaining unique bytes with more hashing
+        let hash2 = murmur_hash_64a(&hash_input, 1);
+        data[8..ACTOR_ID_UNIQUE_BYTES].copy_from_slice(&hash2.to_le_bytes()[..4]);
+
+        // Append job ID
+        data[ACTOR_ID_UNIQUE_BYTES..].copy_from_slice(job_id.data());
+
+        Self::new(data)
+    }
 }
 
 impl RayId for ActorId {
@@ -413,6 +450,96 @@ impl TaskId {
         // Create a nil actor ID with the job ID
         let actor_id = ActorId::nil_from_job(job_id);
         data[TASK_ID_UNIQUE_BYTES..].copy_from_slice(actor_id.data());
+
+        Self::new(data)
+    }
+
+    /// Create a TaskId for the driver task.
+    pub fn for_driver_task(job_id: &JobId) -> Self {
+        let mut data = [0u8; TASK_ID_SIZE];
+        // First 8 bytes set to 1 for driver task
+        data[0] = 1;
+        // Use nil actor ID with job ID
+        let actor_id = ActorId::nil_from_job(job_id);
+        data[TASK_ID_UNIQUE_BYTES..].copy_from_slice(actor_id.data());
+        Self::new(data)
+    }
+
+    /// Create a TaskId for an actor task.
+    pub fn for_actor_task(
+        job_id: &JobId,
+        parent_task_id: &TaskId,
+        parent_task_counter: usize,
+        actor_id: &ActorId,
+    ) -> Self {
+        // Hash parent task and counter to create unique bytes
+        let mut hash_input = Vec::with_capacity(TASK_ID_SIZE + 8);
+        hash_input.extend_from_slice(parent_task_id.data());
+        hash_input.extend_from_slice(&(parent_task_counter as u64).to_le_bytes());
+
+        let hash = murmur_hash_64a(&hash_input, 0);
+        let hash_bytes = hash.to_le_bytes();
+
+        let mut data = [0u8; TASK_ID_SIZE];
+        data[..TASK_ID_UNIQUE_BYTES].copy_from_slice(&hash_bytes);
+        data[TASK_ID_UNIQUE_BYTES..].copy_from_slice(actor_id.data());
+
+        // Ensure this doesn't look like an actor creation task
+        if data[..TASK_ID_UNIQUE_BYTES].iter().all(|&b| b == 0) {
+            data[0] = 1;
+        }
+
+        let _ = job_id; // Used in C++ for validation
+        Self::new(data)
+    }
+
+    /// Create a TaskId for a normal (non-actor) task.
+    pub fn for_normal_task(
+        job_id: &JobId,
+        parent_task_id: &TaskId,
+        parent_task_counter: usize,
+    ) -> Self {
+        // Hash parent task and counter to create unique bytes
+        let mut hash_input = Vec::with_capacity(TASK_ID_SIZE + 8);
+        hash_input.extend_from_slice(parent_task_id.data());
+        hash_input.extend_from_slice(&(parent_task_counter as u64).to_le_bytes());
+
+        let hash = murmur_hash_64a(&hash_input, 0);
+        let hash_bytes = hash.to_le_bytes();
+
+        let mut data = [0u8; TASK_ID_SIZE];
+        data[..TASK_ID_UNIQUE_BYTES].copy_from_slice(&hash_bytes);
+
+        // Use nil actor ID with job ID
+        let actor_id = ActorId::nil_from_job(job_id);
+        data[TASK_ID_UNIQUE_BYTES..].copy_from_slice(actor_id.data());
+
+        Self::new(data)
+    }
+
+    /// Create a TaskId for a specific execution attempt of a task.
+    /// This is used to make task IDs unique across retries.
+    pub fn for_execution_attempt(task_id: &TaskId, attempt_number: u64) -> Self {
+        if attempt_number == 0 {
+            // For first attempt, return a modified version to ensure it's different
+            let mut data = task_id.data.clone();
+            // XOR the first byte with the attempt to ensure difference
+            data[0] ^= 0x80;
+            return Self::new(data);
+        }
+
+        // Hash the original task ID with the attempt number
+        let mut hash_input = Vec::with_capacity(TASK_ID_SIZE + 8);
+        hash_input.extend_from_slice(task_id.data());
+        hash_input.extend_from_slice(&attempt_number.to_le_bytes());
+
+        let hash = murmur_hash_64a(&hash_input, 0);
+        let hash_bytes = hash.to_le_bytes();
+
+        let mut data = [0u8; TASK_ID_SIZE];
+        data[..TASK_ID_UNIQUE_BYTES].copy_from_slice(&hash_bytes);
+        // Keep the actor ID portion from the original task
+        data[TASK_ID_UNIQUE_BYTES..].copy_from_slice(&task_id.data[TASK_ID_UNIQUE_BYTES..]);
 
         Self::new(data)
     }
@@ -562,6 +689,204 @@ impl fmt::Display for ObjectId {
     }
 }
 
+/// Type alias for WorkerId (same as UniqueId).
+pub type WorkerId = UniqueId;
+
+/// Type alias for NodeId (same as UniqueId).
+pub type NodeId = UniqueId;
+
+/// Type alias for FunctionId (same as UniqueId).
+pub type FunctionId = UniqueId;
+
+/// Type alias for ActorClassId (same as UniqueId).
+pub type ActorClassId = UniqueId;
+
+/// Type alias for ConfigId (same as UniqueId).
+pub type ConfigId = UniqueId;
+
+/// Type alias for ClusterId (same as UniqueId).
+pub type ClusterId = UniqueId;
+
+/// An 18-byte placement group identifier (matches C++ PlacementGroupID).
+#[derive(Clone)]
+pub struct PlacementGroupId {
+    data: [u8; PLACEMENT_GROUP_ID_SIZE],
+    hash: u64,
+}
+
+impl PlacementGroupId {
+    /// Create a new PlacementGroupId with the given data.
+    pub fn new(data: [u8; PLACEMENT_GROUP_ID_SIZE]) -> Self {
+        let hash = murmur_hash_64a(&data, 0);
+        Self { data, hash }
+    }
+
+    /// Get the JobId embedded in this PlacementGroupId.
+    pub fn job_id(&self) -> JobId {
+        let mut job_data = [0u8; JOB_ID_SIZE];
+        job_data.copy_from_slice(&self.data[PLACEMENT_GROUP_ID_UNIQUE_BYTES..]);
+        JobId::new(job_data)
+    }
+
+    /// Create a PlacementGroupId by hashing the job_id.
+    /// This matches the C++ PlacementGroupID::Of method.
+    pub fn of(job_id: &JobId) -> Self {
+        let mut data = [0u8; PLACEMENT_GROUP_ID_SIZE];
+
+        // Generate random unique bytes
+        rand::thread_rng().fill(&mut data[..PLACEMENT_GROUP_ID_UNIQUE_BYTES]);
+
+        // Append job ID
+        data[PLACEMENT_GROUP_ID_UNIQUE_BYTES..].copy_from_slice(job_id.data());
+
+        Self::new(data)
+    }
+}
+
+impl RayId for PlacementGroupId {
+    const SIZE: usize = PLACEMENT_GROUP_ID_SIZE;
+
+    fn data(&self) -> &[u8] {
+        &self.data
+    }
+
+    fn data_mut(&mut self) -> &mut [u8] {
+        &mut self.data
+    }
+
+    fn from_binary(data: &[u8]) -> Option<Self> {
+        if data.len() != PLACEMENT_GROUP_ID_SIZE {
+            return None;
+        }
+        let mut arr = [0u8; PLACEMENT_GROUP_ID_SIZE];
+        arr.copy_from_slice(data);
+        Some(Self::new(arr))
+    }
+
+    fn nil() -> Self {
+        Self::new([0xFF; PLACEMENT_GROUP_ID_SIZE])
+    }
+}
+
+impl PartialEq for PlacementGroupId {
+    fn eq(&self, other: &Self) -> bool {
+        self.data == other.data
+    }
+}
+
+impl Eq for PlacementGroupId {}
+
+impl Hash for PlacementGroupId {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_u64(self.hash);
+    }
+}
+
+impl fmt::Debug for PlacementGroupId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "PlacementGroupId({})", self.to_hex())
+    }
+}
+
+impl fmt::Display for PlacementGroupId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.to_hex())
+    }
+}
+
+/// A 32-byte lease identifier (matches C++ LeaseID).
+#[derive(Clone)]
+pub struct LeaseId {
+    data: [u8; LEASE_ID_SIZE],
+    hash: u64,
+}
+
+impl LeaseId {
+    /// Create a new LeaseId with the given data.
+    pub fn new(data: [u8; LEASE_ID_SIZE]) -> Self {
+        let hash = murmur_hash_64a(&data, 0);
+        Self { data, hash }
+    }
+
+    /// Get the WorkerId embedded in this LeaseId.
+    pub fn worker_id(&self) -> WorkerId {
+        let mut worker_data = [0u8; UNIQUE_ID_SIZE];
+        worker_data.copy_from_slice(&self.data[LEASE_ID_UNIQUE_BYTES..]);
+        UniqueId::new(worker_data)
+    }
+
+    /// Create a LeaseId from a worker ID and counter.
+    pub fn from_worker(worker_id: &WorkerId, counter: u32) -> Self {
+        let mut data = [0u8; LEASE_ID_SIZE];
+
+        // First 4 bytes are the counter
+        data[..LEASE_ID_UNIQUE_BYTES].copy_from_slice(&counter.to_be_bytes());
+
+        // Remaining bytes are the worker ID
+        data[LEASE_ID_UNIQUE_BYTES..].copy_from_slice(worker_id.data());
+
+        Self::new(data)
+    }
+
+    /// Create a random LeaseId.
+    pub fn from_random() -> Self {
+        let mut data = [0u8; LEASE_ID_SIZE];
+        rand::thread_rng().fill(&mut data);
+        Self::new(data)
+    }
+}
+
+impl RayId for LeaseId {
+    const SIZE: usize = LEASE_ID_SIZE;
+
+    fn data(&self) -> &[u8] {
+        &self.data
+    }
+
+    fn data_mut(&mut self) -> &mut [u8] {
+        &mut self.data
+    }
+
+    fn from_binary(data: &[u8]) -> Option<Self> {
+        if data.len() != LEASE_ID_SIZE {
+            return None;
+        }
+        let mut arr = [0u8; LEASE_ID_SIZE];
+        arr.copy_from_slice(data);
+        Some(Self::new(arr))
+    }
+
+    fn nil() -> Self {
+        Self::new([0xFF; LEASE_ID_SIZE])
+    }
+}
+
+impl PartialEq for LeaseId {
+    fn eq(&self, other: &Self) -> bool {
+        self.data == other.data
+    }
+}
+
+impl Eq for LeaseId {}
+
+impl Hash for LeaseId {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_u64(self.hash);
+    }
+}
+
+impl fmt::Debug for LeaseId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "LeaseId({})", self.to_hex())
+    }
+}
+
+impl fmt::Display for LeaseId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.to_hex())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -686,5 +1011,140 @@ mod tests {
         // Different seeds produce different hashes
         let hash4 = murmur_hash_64a(data, 1);
         assert_ne!(hash1, hash4);
+    }
+
+    #[test]
+    fn test_actor_id_of() {
+        let job_id = JobId::from_int(199);
+        let driver_task_id = TaskId::for_driver_task(&job_id);
+        let actor_id = ActorId::of(&job_id, &driver_task_id, 1);
+
+        assert_eq!(actor_id.job_id(), job_id);
+        assert!(!actor_id.is_nil());
+    }
+
+    #[test]
+    fn test_task_id_for_driver_task() {
+        let job_id = JobId::from_int(199);
+        let driver_task_id = TaskId::for_driver_task(&job_id);
+
+        assert!(!driver_task_id.is_nil());
+        assert!(!driver_task_id.is_for_actor_creation_task());
+    }
+
+    #[test]
+    fn test_task_id_for_actor_task() {
+        let job_id = JobId::from_int(199);
+        let driver_task_id = TaskId::for_driver_task(&job_id);
+        let actor_id = ActorId::of(&job_id, &driver_task_id, 1);
+        let task_id = TaskId::for_actor_task(&job_id, &driver_task_id, 1, &actor_id);
+
+        assert_eq!(task_id.actor_id(), actor_id);
+        assert!(!task_id.is_for_actor_creation_task());
+    }
+
+    #[test]
+    fn test_task_id_for_normal_task() {
+        let job_id = JobId::from_int(199);
+        let driver_task_id = TaskId::for_driver_task(&job_id);
+        let task_id = TaskId::for_normal_task(&job_id, &driver_task_id, 0);
+
+        assert!(!task_id.is_nil());
+        assert!(!task_id.is_for_actor_creation_task());
+    }
+
+    #[test]
+    fn test_task_id_for_execution_attempt() {
+        let job_id = JobId::from_int(199);
+        let task_id = TaskId::from_random(&job_id);
+
+        // Different attempts should produce different task IDs
+        let attempt0 = TaskId::for_execution_attempt(&task_id, 0);
+        let attempt1 = TaskId::for_execution_attempt(&task_id, 1);
+
+        assert_ne!(task_id, attempt0);
+        assert_ne!(task_id, attempt1);
+        assert_ne!(attempt0, attempt1);
+
+        // Same attempt should produce same ID
+        let attempt1_again = TaskId::for_execution_attempt(&task_id, 1);
+        assert_eq!(attempt1, attempt1_again);
+
+        // Check for overflow handling
+        assert_ne!(
+            TaskId::for_execution_attempt(&task_id, 0),
+            TaskId::for_execution_attempt(&task_id, 256)
+        );
+    }
+
+    #[test]
+    fn test_placement_group_id_size() {
+        assert_eq!(PlacementGroupId::SIZE, 18);
+    }
+
+    #[test]
+    fn test_placement_group_id_of() {
+        let job_id = JobId::from_int(1);
+        let pg_id = PlacementGroupId::of(&job_id);
+
+        assert_eq!(pg_id.job_id(), job_id);
+        assert!(!pg_id.is_nil());
+    }
+
+    #[test]
+    fn test_placement_group_id_roundtrip() {
+        let job_id = JobId::from_int(1);
+        let pg_id1 = PlacementGroupId::of(&job_id);
+        let binary = pg_id1.to_binary();
+        let pg_id2 = PlacementGroupId::from_binary(&binary).unwrap();
+
+        assert_eq!(pg_id1, pg_id2);
+
+        let hex = pg_id1.to_hex();
+        let pg_id3 = PlacementGroupId::from_hex(&hex).unwrap();
+        assert_eq!(pg_id1, pg_id3);
+    }
+
+    #[test]
+    fn test_lease_id_size() {
+        assert_eq!(LeaseId::SIZE, 32);
+    }
+
+    #[test]
+    fn test_lease_id_from_worker() {
+        let worker_id = WorkerId::from_random();
+        let lease_id = LeaseId::from_worker(&worker_id, 2);
+
+        assert!(!lease_id.is_nil());
+        assert_eq!(lease_id.worker_id(), worker_id);
+    }
+
+    #[test]
+    fn test_lease_id_different_counters() {
+        let worker_id = WorkerId::from_random();
+        let lease1 = LeaseId::from_worker(&worker_id, 1);
+        let lease2 = LeaseId::from_worker(&worker_id, 2);
+
+        assert_ne!(lease1, lease2);
+        assert_eq!(lease1.worker_id(), lease2.worker_id());
+    }
+
+    #[test]
+    fn test_lease_id_roundtrip() {
+        let worker_id = WorkerId::from_random();
+        let lease_id = LeaseId::from_worker(&worker_id, 2);
+
+        let from_hex = LeaseId::from_hex(&lease_id.to_hex()).unwrap();
+        let from_binary = LeaseId::from_binary(&lease_id.to_binary()).unwrap();
+
+        assert_eq!(lease_id, from_hex);
+        assert_eq!(lease_id, from_binary);
+        assert_eq!(lease_id.worker_id(), from_hex.worker_id());
+    }
+
+    #[test]
+    fn test_lease_id_random() {
+        let random_lease = LeaseId::from_random();
+        assert!(!random_lease.is_nil());
     }
 }

@@ -19,8 +19,17 @@
 
 pub mod config;
 pub mod id;
+pub mod scheduling;
 pub mod status;
 
 pub use config::RayConfig;
-pub use id::{ActorId, JobId, ObjectId, TaskId, UniqueId};
+pub use id::{
+    ActorClassId, ActorId, ClusterId, ConfigId, FunctionId, JobId, LeaseId, NodeId, ObjectId,
+    PlacementGroupId, RayId, TaskId, UniqueId, WorkerId,
+};
+pub use scheduling::{
+    FixedPoint, NodeResourceSet, ResourceId, ResourceSet, StringIdMap,
+    RESOURCE_UNIT_SCALING, CPU_RESOURCE_LABEL, GPU_RESOURCE_LABEL,
+    MEMORY_RESOURCE_LABEL, OBJECT_STORE_MEMORY_RESOURCE_LABEL,
+};
 pub use status::{RayError, Result, StatusCode};

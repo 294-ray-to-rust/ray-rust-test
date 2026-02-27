@@ -29,6 +29,18 @@ ray_cxx_bridge(
     src = "//src/ray/rust/ray-ffi:src/common/id.rs",
 )
 
+# CXX bridge for scheduling types
+ray_cxx_bridge(
+    name = "scheduling_bridge",
+    src = "//src/ray/rust/ray-ffi:src/common/scheduling.rs",
+)
+
+# CXX bridge for plasma types
+ray_cxx_bridge(
+    name = "plasma_bridge",
+    src = "//src/ray/rust/ray-ffi:src/common/plasma.rs",
+)
+
 # C++ wrapper for Rust Status implementation
 ray_cc_library(
     name = "rust_status",
@@ -53,11 +65,35 @@ ray_cc_library(
     ],
 )
 
+# C++ wrapper for Rust scheduling implementations
+ray_cc_library(
+    name = "rust_scheduling",
+    hdrs = ["rust_scheduling.h"],
+    deps = [
+        ":scheduling_bridge",
+        "//src/ray/rust/ray-ffi:ray_ffi_static",
+        "@crate_index//:cxx",
+    ],
+)
+
+# C++ wrapper for Rust plasma implementations
+ray_cc_library(
+    name = "rust_plasma",
+    hdrs = ["rust_plasma.h"],
+    deps = [
+        ":plasma_bridge",
+        "//src/ray/rust/ray-ffi:ray_ffi_static",
+        "@crate_index//:cxx",
+    ],
+)
+
 # Combined FFI library for convenience
 ray_cc_library(
     name = "ray_rust_ffi",
     deps = [
         ":rust_id",
+        ":rust_plasma",
+        ":rust_scheduling",
         ":rust_status",
     ],
 )

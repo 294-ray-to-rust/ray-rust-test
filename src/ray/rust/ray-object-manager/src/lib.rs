@@ -12,9 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Common type FFI bridges.
+//! Ray Object Manager - Distributed object storage for Ray.
+//!
+//! This crate provides the Rust implementation of the plasma object store
+//! and object manager for Ray's distributed object storage system.
 
-pub mod id;
 pub mod plasma;
-pub mod scheduling;
-pub mod status;
+
+// Re-export commonly used types
+pub use plasma::allocator::{Allocator, AllocatorStats, HeapAllocator, NullAllocator};
+pub use plasma::common::{
+    Allocation, LocalObject, ObjectInfo, ObjectSource, ObjectState, PlasmaError,
+    PlasmaObjectHeader, PlasmaResult,
+};
+pub use plasma::store::{ObjectRef, ObjectStore, ObjectStoreConfig, ObjectStoreStats};

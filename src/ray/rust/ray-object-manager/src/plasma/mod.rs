@@ -12,9 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Common type FFI bridges.
+//! Plasma object store implementation.
 
-pub mod id;
-pub mod plasma;
-pub mod scheduling;
-pub mod status;
+pub mod allocator;
+pub mod common;
+pub mod store;
+
+// Re-export types from common
+pub use common::{
+    Allocation, LocalObject, ObjectInfo, ObjectSource, ObjectState, PlasmaError,
+    PlasmaObjectHeader, PlasmaResult,
+};
+
+// Re-export types from allocator
+pub use allocator::{Allocator, AllocatorStats, HeapAllocator, NullAllocator};
+
+// Re-export types from store
+pub use store::{ObjectRef, ObjectStore, ObjectStoreConfig, ObjectStoreStats};

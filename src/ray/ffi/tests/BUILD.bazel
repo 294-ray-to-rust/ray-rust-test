@@ -12,18 +12,40 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//bazel:ray.bzl", "ray_cc_test")
+load("@rules_cc//cc:defs.bzl", "cc_test")
 
 package(default_visibility = ["//visibility:public"])
 
 # Test for Rust FFI infrastructure
-ray_cc_test(
+cc_test(
     name = "rust_ffi_test",
     srcs = ["rust_ffi_test.cc"],
     deps = [
         "//src/ray/ffi:ray_rust_ffi",
         "@com_google_googletest//:gtest",
     ],
-    # Link with pthread needed by Rust runtime
-    linkopts = ["-lpthread", "-ldl"],
+    # Static linkage to avoid dynamic allocator library issues
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust Plasma/ObjectStore FFI
+cc_test(
+    name = "rust_plasma_test",
+    srcs = ["rust_plasma_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    # Static linkage to avoid dynamic allocator library issues
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
 )

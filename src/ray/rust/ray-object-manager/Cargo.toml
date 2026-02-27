@@ -12,27 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//bazel:rust.bzl", "ray_rust_library", "ray_rust_test")
+[package]
+name = "ray-object-manager"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Object Manager for Ray - distributed object storage"
 
-package(default_visibility = ["//visibility:public"])
+[dependencies]
+ray-common = { workspace = true }
+thiserror = { workspace = true }
+parking_lot = { workspace = true }
+dashmap = { workspace = true }
 
-ray_rust_library(
-    name = "ray_common",
-    srcs = glob(["src/**/*.rs"]),
-    crate_name = "ray_common",
-    deps = [
-        "@crate_index//:hex",
-        "@crate_index//:lazy_static",
-        "@crate_index//:rand",
-        "@crate_index//:serde",
-        "@crate_index//:thiserror",
-    ],
-)
-
-ray_rust_test(
-    name = "ray_common_test",
-    crate = ":ray_common",
-    deps = [
-        "@crate_index//:rstest",
-    ],
-)
+[dev-dependencies]
+rstest = { workspace = true }

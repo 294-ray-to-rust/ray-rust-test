@@ -20,6 +20,8 @@ fn main() {
     cxx_build::bridges([
         "src/common/status.rs",
         "src/common/id.rs",
+        "src/common/scheduling.rs",
+        "src/common/plasma.rs",
     ])
     .flag_if_supported("-std=c++17")
     .compile("ray_ffi");
@@ -28,5 +30,7 @@ fn main() {
     println!("cargo:rerun-if-changed=src/common/mod.rs");
     println!("cargo:rerun-if-changed=src/common/status.rs");
     println!("cargo:rerun-if-changed=src/common/id.rs");
+    println!("cargo:rerun-if-changed=src/common/scheduling.rs");
+    println!("cargo:rerun-if-changed=src/common/plasma.rs");
     println!("cargo:rerun-if-changed=src/callbacks.rs");
 }

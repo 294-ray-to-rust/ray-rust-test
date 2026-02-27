@@ -32,6 +32,17 @@ constexpr size_t kRustActorIdSize = 16;
 constexpr size_t kRustTaskIdSize = 24;
 constexpr size_t kRustObjectIdSize = 28;
 constexpr size_t kRustUniqueIdSize = 28;
+constexpr size_t kRustPlacementGroupIdSize = 18;
+constexpr size_t kRustLeaseIdSize = 32;
+
+// Forward declarations
+class RustJobId;
+class RustActorId;
+class RustTaskId;
+class RustObjectId;
+class RustUniqueId;
+class RustPlacementGroupId;
+class RustLeaseId;
 
 /// Drop-in replacement for ray::JobID backed by Rust implementation.
 class RustJobId {
@@ -148,6 +159,11 @@ class RustActorId {
     return id;
   }
 
+  // Defined after RustTaskId is fully declared
+  static RustActorId Of(const RustJobId &job_id,
+                        const RustTaskId &parent_task_id,
+                        size_t parent_task_counter);
+
   std::string Binary() const {
     auto vec = ffi::actor_id_to_binary(*impl_);
     return std::string(reinterpret_cast<const char *>(vec.data()), vec.size());
@@ -231,6 +247,37 @@ class RustTaskId {
     return id;
   }
 
+  static RustTaskId ForDriverTask(const RustJobId &job_id) {
+    RustTaskId id;
+    id.impl_ = ffi::task_id_for_driver_task(job_id.impl());
+    return id;
+  }
+
+  static RustTaskId ForActorTask(const RustJobId &job_id,
+                                 const RustTaskId &parent_task_id,
+                                 size_t parent_task_counter,
+                                 const RustActorId &actor_id) {
+    RustTaskId id;
+    id.impl_ = ffi::task_id_for_actor_task(job_id.impl(), parent_task_id.impl(),
+                                           parent_task_counter, actor_id.impl());
+    return id;
+  }
+
+  static RustTaskId ForNormalTask(const RustJobId &job_id,
+                                  const RustTaskId &parent_task_id,
+                                  size_t parent_task_counter) {
+    RustTaskId id;
+    id.impl_ = ffi::task_id_for_normal_task(job_id.impl(), parent_task_id.impl(),
+                                            parent_task_counter);
+    return id;
+  }
+
+  static RustTaskId ForExecutionAttempt(const RustTaskId &task_id, uint64_t attempt_number) {
+    RustTaskId id;
+    id.impl_ = ffi::task_id_for_execution_attempt(task_id.impl(), attempt_number);
+    return id;
+  }
+
   std::string Binary() const {
     auto vec = ffi::task_id_to_binary(*impl_);
     return std::string(reinterpret_cast<const char *>(vec.data()), vec.size());
@@ -271,6 +318,15 @@ class RustTaskId {
  private:
   rust::Box<ffi::RustTaskId> impl_;
 };
+
+// RustActorId::Of definition (after RustTaskId is fully defined)
+inline RustActorId RustActorId::Of(const RustJobId &job_id,
+                                   const RustTaskId &parent_task_id,
+                                   size_t parent_task_counter) {
+  RustActorId id;
+  id.impl_ = ffi::actor_id_of(job_id.impl(), parent_task_id.impl(), parent_task_counter);
+  return id;
+}
 
 /// Drop-in replacement for ray::ObjectID backed by Rust implementation.
 class RustObjectId {
@@ -353,6 +409,235 @@ class RustObjectId {
   rust::Box<ffi::RustObjectId> impl_;
 };
 
+/// Drop-in replacement for ray::UniqueID (also used as WorkerID, NodeID) backed by Rust.
+class RustUniqueId {
+ public:
+  static constexpr size_t Size() { return kRustUniqueIdSize; }
+
+  RustUniqueId() : impl_(ffi::unique_id_nil()) {}
+
+  RustUniqueId(const RustUniqueId &other) : impl_(ffi::unique_id_clone(*other.impl_)) {}
+
+  RustUniqueId &operator=(const RustUniqueId &other) {
+    if (this != &other) {
+      impl_ = ffi::unique_id_clone(*other.impl_);
+    }
+    return *this;
+  }
+
+  RustUniqueId(RustUniqueId &&other) noexcept = default;
+  RustUniqueId &operator=(RustUniqueId &&other) noexcept = default;
+  ~RustUniqueId() = default;
+
+  static RustUniqueId FromBinary(const std::string &binary) {
+    RustUniqueId id;
+    rust::Slice<const uint8_t> slice(
+        reinterpret_cast<const uint8_t *>(binary.data()), binary.size());
+    id.impl_ = ffi::unique_id_from_binary(slice);
+    return id;
+  }
+
+  static RustUniqueId FromHex(const std::string &hex) {
+    RustUniqueId id;
+    id.impl_ = ffi::unique_id_from_hex(hex);
+    return id;
+  }
+
+  static RustUniqueId FromRandom() {
+    RustUniqueId id;
+    id.impl_ = ffi::unique_id_from_random();
+    return id;
+  }
+
+  static const RustUniqueId &Nil() {
+    static RustUniqueId nil;
+    return nil;
+  }
+
+  std::string Binary() const {
+    auto vec = ffi::unique_id_to_binary(*impl_);
+    return std::string(reinterpret_cast<const char *>(vec.data()), vec.size());
+  }
+
+  std::string Hex() const { return std::string(ffi::unique_id_to_hex(*impl_)); }
+
+  bool IsNil() const { return ffi::unique_id_is_nil(*impl_); }
+
+  size_t Hash() const { return ffi::unique_id_hash(*impl_); }
+
+  bool operator==(const RustUniqueId &other) const {
+    return ffi::unique_id_eq(*impl_, *other.impl_);
+  }
+
+  bool operator!=(const RustUniqueId &other) const { return !(*this == other); }
+
+  const ffi::RustUniqueId &impl() const { return *impl_; }
+
+ private:
+  rust::Box<ffi::RustUniqueId> impl_;
+};
+
+/// Type aliases for specific ID types that use UniqueId as base
+using RustWorkerId = RustUniqueId;
+using RustNodeId = RustUniqueId;
+using RustFunctionId = RustUniqueId;
+using RustActorClassId = RustUniqueId;
+using RustConfigId = RustUniqueId;
+using RustClusterId = RustUniqueId;
+
+/// Drop-in replacement for ray::PlacementGroupID backed by Rust implementation.
+class RustPlacementGroupId {
+ public:
+  static constexpr size_t Size() { return kRustPlacementGroupIdSize; }
+
+  RustPlacementGroupId() : impl_(ffi::placement_group_id_nil()) {}
+
+  RustPlacementGroupId(const RustPlacementGroupId &other)
+      : impl_(ffi::placement_group_id_clone(*other.impl_)) {}
+
+  RustPlacementGroupId &operator=(const RustPlacementGroupId &other) {
+    if (this != &other) {
+      impl_ = ffi::placement_group_id_clone(*other.impl_);
+    }
+    return *this;
+  }
+
+  RustPlacementGroupId(RustPlacementGroupId &&other) noexcept = default;
+  RustPlacementGroupId &operator=(RustPlacementGroupId &&other) noexcept = default;
+  ~RustPlacementGroupId() = default;
+
+  static RustPlacementGroupId FromBinary(const std::string &binary) {
+    RustPlacementGroupId id;
+    rust::Slice<const uint8_t> slice(
+        reinterpret_cast<const uint8_t *>(binary.data()), binary.size());
+    id.impl_ = ffi::placement_group_id_from_binary(slice);
+    return id;
+  }
+
+  static RustPlacementGroupId FromHex(const std::string &hex) {
+    RustPlacementGroupId id;
+    id.impl_ = ffi::placement_group_id_from_hex(hex);
+    return id;
+  }
+
+  static RustPlacementGroupId Of(const RustJobId &job_id) {
+    RustPlacementGroupId id;
+    id.impl_ = ffi::placement_group_id_of(job_id.impl());
+    return id;
+  }
+
+  static const RustPlacementGroupId &Nil() {
+    static RustPlacementGroupId nil;
+    return nil;
+  }
+
+  std::string Binary() const {
+    auto vec = ffi::placement_group_id_to_binary(*impl_);
+    return std::string(reinterpret_cast<const char *>(vec.data()), vec.size());
+  }
+
+  std::string Hex() const { return std::string(ffi::placement_group_id_to_hex(*impl_)); }
+
+  bool IsNil() const { return ffi::placement_group_id_is_nil(*impl_); }
+
+  RustJobId JobId() const {
+    auto job_impl = ffi::placement_group_id_job_id(*impl_);
+    auto binary = ffi::job_id_to_binary(*job_impl);
+    return RustJobId::FromBinary(
+        std::string(reinterpret_cast<const char *>(binary.data()), binary.size()));
+  }
+
+  size_t Hash() const { return ffi::placement_group_id_hash(*impl_); }
+
+  bool operator==(const RustPlacementGroupId &other) const {
+    return ffi::placement_group_id_eq(*impl_, *other.impl_);
+  }
+
+  bool operator!=(const RustPlacementGroupId &other) const { return !(*this == other); }
+
+ private:
+  rust::Box<ffi::RustPlacementGroupId> impl_;
+};
+
+/// Drop-in replacement for ray::LeaseID backed by Rust implementation.
+class RustLeaseId {
+ public:
+  static constexpr size_t Size() { return kRustLeaseIdSize; }
+
+  RustLeaseId() : impl_(ffi::lease_id_nil()) {}
+
+  RustLeaseId(const RustLeaseId &other) : impl_(ffi::lease_id_clone(*other.impl_)) {}
+
+  RustLeaseId &operator=(const RustLeaseId &other) {
+    if (this != &other) {
+      impl_ = ffi::lease_id_clone(*other.impl_);
+    }
+    return *this;
+  }
+
+  RustLeaseId(RustLeaseId &&other) noexcept = default;
+  RustLeaseId &operator=(RustLeaseId &&other) noexcept = default;
+  ~RustLeaseId() = default;
+
+  static RustLeaseId FromBinary(const std::string &binary) {
+    RustLeaseId id;
+    rust::Slice<const uint8_t> slice(
+        reinterpret_cast<const uint8_t *>(binary.data()), binary.size());
+    id.impl_ = ffi::lease_id_from_binary(slice);
+    return id;
+  }
+
+  static RustLeaseId FromHex(const std::string &hex) {
+    RustLeaseId id;
+    id.impl_ = ffi::lease_id_from_hex(hex);
+    return id;
+  }
+
+  static RustLeaseId FromWorker(const RustUniqueId &worker_id, uint32_t counter) {
+    RustLeaseId id;
+    id.impl_ = ffi::lease_id_from_worker(worker_id.impl(), counter);
+    return id;
+  }
+
+  static RustLeaseId FromRandom() {
+    RustLeaseId id;
+    id.impl_ = ffi::lease_id_from_random();
+    return id;
+  }
+
+  static const RustLeaseId &Nil() {
+    static RustLeaseId nil;
+    return nil;
+  }
+
+  std::string Binary() const {
+    auto vec = ffi::lease_id_to_binary(*impl_);
+    return std::string(reinterpret_cast<const char *>(vec.data()), vec.size());
+  }
+
+  std::string Hex() const { return std::string(ffi::lease_id_to_hex(*impl_)); }
+
+  bool IsNil() const { return ffi::lease_id_is_nil(*impl_); }
+
+  RustUniqueId WorkerId() const {
+    auto worker_impl = ffi::lease_id_worker_id(*impl_);
+    auto binary = ffi::unique_id_to_binary(*worker_impl);
+    return RustUniqueId::FromBinary(
+        std::string(reinterpret_cast<const char *>(binary.data()), binary.size()));
+  }
+
+  size_t Hash() const { return ffi::lease_id_hash(*impl_); }
+
+  bool operator==(const RustLeaseId &other) const {
+    return ffi::lease_id_eq(*impl_, *other.impl_);
+  }
+
+  bool operator!=(const RustLeaseId &other) const { return !(*this == other); }
+
+ private:
+  rust::Box<ffi::RustLeaseId> impl_;
+};
+
 }  // namespace ray
 
 // std::hash specializations
@@ -376,6 +661,21 @@ struct hash<ray::RustTaskId> {
 template <>
 struct hash<ray::RustObjectId> {
   size_t operator()(const ray::RustObjectId &id) const { return id.Hash(); }
+};
+
+template <>
+struct hash<ray::RustUniqueId> {
+  size_t operator()(const ray::RustUniqueId &id) const { return id.Hash(); }
+};
+
+template <>
+struct hash<ray::RustPlacementGroupId> {
+  size_t operator()(const ray::RustPlacementGroupId &id) const { return id.Hash(); }
+};
+
+template <>
+struct hash<ray::RustLeaseId> {
+  size_t operator()(const ray::RustLeaseId &id) const { return id.Hash(); }
 };
 
 }  // namespace std

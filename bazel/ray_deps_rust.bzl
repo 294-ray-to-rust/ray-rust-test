@@ -23,11 +23,12 @@ def ray_rust_deps():
     """
 
     # rules_rust for Rust toolchain and build rules
+    # Using 0.56.0 which supports Cargo.lock v4 format
     if "rules_rust" not in native.existing_rules():
         http_archive(
             name = "rules_rust",
-            sha256 = "c30dfdf1e86fd50650a76ea645b3a45f2f00667b06187a685e9554e167ca97ee",
-            urls = ["https://github.com/bazelbuild/rules_rust/releases/download/0.40.0/rules_rust-v0.40.0.tar.gz"],
+            sha256 = "f1306aac0b258b790df01ad9abc6abb0df0b65416c74b4ef27f4aab298780a64",
+            urls = ["https://github.com/bazelbuild/rules_rust/releases/download/0.56.0/rules_rust-0.56.0.tar.gz"],
         )
 
 def ray_rust_toolchains():
