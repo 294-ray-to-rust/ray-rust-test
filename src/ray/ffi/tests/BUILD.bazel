@@ -175,3 +175,355 @@ cc_test(
         "-lm",
     ],
 )
+
+# Test for Rust StatusOr FFI (matches status_or_test.cc)
+cc_test(
+    name = "rust_status_or_test",
+    srcs = ["rust_status_or_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust Utility FFI (matches exponential_backoff_test.cc, string_utils_test.cc, size_literals_test.cc)
+cc_test(
+    name = "rust_util_test",
+    srcs = ["rust_util_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust SharedLruCache FFI (matches shared_lru_test.cc)
+cc_test(
+    name = "rust_shared_lru_test",
+    srcs = ["rust_shared_lru_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust Filesystem FFI (matches filesystem_test.cc)
+cc_test(
+    name = "rust_filesystem_test",
+    srcs = ["rust_filesystem_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust SourceLocation FFI (matches source_location_test.cc)
+cc_test(
+    name = "rust_source_location_test",
+    srcs = ["rust_source_location_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust EventStats FFI (matches event_stats_test.cc)
+cc_test(
+    name = "rust_event_stats_test",
+    srcs = ["rust_event_stats_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust RayConfig FFI (matches ray_config_test.cc)
+cc_test(
+    name = "rust_ray_config_test",
+    srcs = ["rust_ray_config_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust CounterMap FFI (matches counter_test.cc)
+cc_test(
+    name = "rust_counter_map_test",
+    srcs = ["rust_counter_map_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust MemoryMonitor FFI (matches memory_monitor_utils_test.cc)
+cc_test(
+    name = "rust_memory_monitor_test",
+    srcs = ["rust_memory_monitor_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust LabelSelector FFI (matches label_selector_test.cc)
+cc_test(
+    name = "rust_label_selector_test",
+    srcs = ["rust_label_selector_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust FallbackStrategy FFI (matches fallback_strategy_test.cc)
+cc_test(
+    name = "rust_fallback_strategy_test",
+    srcs = ["rust_fallback_strategy_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust gRPC Util FFI (matches grpc_util_test.cc)
+cc_test(
+    name = "rust_grpc_util_test",
+    srcs = ["rust_grpc_util_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust BundleLocationIndex FFI (matches bundle_location_index_test.cc)
+cc_test(
+    name = "rust_bundle_location_index_test",
+    srcs = ["rust_bundle_location_index_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust ScopedEnvSetter FFI (matches scoped_env_setter_test.cc)
+cc_test(
+    name = "rust_scoped_env_setter_test",
+    srcs = ["rust_scoped_env_setter_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust ThreadChecker FFI (matches thread_checker_test.cc)
+cc_test(
+    name = "rust_thread_checker_test",
+    srcs = ["rust_thread_checker_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust CmdLineUtils FFI (matches cmd_line_utils_test.cc)
+cc_test(
+    name = "rust_cmd_line_utils_test",
+    srcs = ["rust_cmd_line_utils_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust ContainerUtil FFI (matches container_util_test.cc)
+cc_test(
+    name = "rust_container_util_test",
+    srcs = ["rust_container_util_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust StatsCollector FFI (matches stats_collector_test.cc)
+cc_test(
+    name = "rust_stats_collector_test",
+    srcs = ["rust_stats_collector_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust SpilledObject FFI (matches spilled_object_test.cc - partial)
+cc_test(
+    name = "rust_spilled_object_test",
+    srcs = ["rust_spilled_object_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust AsioChaos FFI (matches asio_defer_test.cc)
+cc_test(
+    name = "rust_asio_chaos_test",
+    srcs = ["rust_asio_chaos_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust Cgroup FFI (matches sysfs_cgroup_driver_test.cc)
+cc_test(
+    name = "rust_cgroup_test",
+    srcs = ["rust_cgroup_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)
+
+# Test for Rust CgroupManager FFI (matches cgroup_manager_test.cc)
+cc_test(
+    name = "rust_cgroup_manager_test",
+    srcs = ["rust_cgroup_manager_test.cc"],
+    deps = [
+        "//src/ray/ffi:ray_rust_ffi",
+        "@com_google_googletest//:gtest",
+    ],
+    linkstatic = True,
+    linkopts = [
+        "-lpthread",
+        "-ldl",
+        "-lm",
+    ],
+)

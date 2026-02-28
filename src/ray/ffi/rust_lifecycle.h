@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "rust/cxx.h"
 
@@ -44,6 +45,7 @@ class RustLifecycleResult {
       : impl_(std::move(impl)) {}
 
   bool ok() const { return ffi::lifecycle_result_success(*impl_); }
+  bool Success() const { return ok(); }
 
   RustLifecycleErrorCode error_code() const {
     return static_cast<RustLifecycleErrorCode>(ffi::lifecycle_result_error_code(*impl_));
@@ -52,6 +54,7 @@ class RustLifecycleResult {
   std::string error_message() const {
     return std::string(ffi::lifecycle_result_error_message(*impl_));
   }
+  std::string ErrorMessage() const { return error_message(); }
 
  private:
   rust::Box<ffi::RustLifecycleResult> impl_;
@@ -113,6 +116,44 @@ class RustStatsCollectorSnapshot {
   }
   int64_t num_bytes_errored() const {
     return ffi::stats_snapshot_num_bytes_errored(*impl_);
+  }
+
+  // Additional accessors with CamelCase names for test compatibility
+  int64_t NumBytesCreatedTotal() const { return num_bytes_created_total(); }
+  int64_t NumObjectsSpillable() const { return num_objects_spillable(); }
+  int64_t NumBytesSpillable() const { return num_bytes_spillable(); }
+  int64_t NumObjectsUnsealed() const { return num_objects_unsealed(); }
+  int64_t NumBytesUnsealed() const { return num_bytes_unsealed(); }
+  int64_t NumObjectsInUse() const { return num_objects_in_use(); }
+  int64_t NumBytesInUse() const { return num_bytes_in_use(); }
+  int64_t NumObjectsEvictable() const { return num_objects_evictable(); }
+  int64_t NumBytesEvictable() const { return num_bytes_evictable(); }
+  int64_t NumObjectsCreatedByWorker() const { return num_objects_created_by_worker(); }
+  int64_t NumBytesCreatedByWorker() const { return num_bytes_created_by_worker(); }
+  int64_t NumObjectsRestored() const { return num_objects_restored(); }
+  int64_t NumBytesRestored() const { return num_bytes_restored(); }
+  int64_t NumObjectsReceived() const { return num_objects_received(); }
+  int64_t NumBytesReceived() const { return num_bytes_received(); }
+  int64_t NumObjectsErrored() const { return num_objects_errored(); }
+  int64_t NumBytesErrored() const { return num_bytes_errored(); }
+
+  // "Current" bytes = in_use + spillable + evictable
+  int64_t GetNumBytesCreatedCurrent() const {
+    return ffi::stats_snapshot_get_num_bytes_created_current(*impl_);
+  }
+
+  // bytes_by_loc_seal counters
+  int64_t BytesFallbackSealed() const {
+    return ffi::stats_snapshot_bytes_fallback_sealed(*impl_);
+  }
+  int64_t BytesFallbackUnsealed() const {
+    return ffi::stats_snapshot_bytes_fallback_unsealed(*impl_);
+  }
+  int64_t BytesPrimarySealed() const {
+    return ffi::stats_snapshot_bytes_primary_sealed(*impl_);
+  }
+  int64_t BytesPrimaryUnsealed() const {
+    return ffi::stats_snapshot_bytes_primary_unsealed(*impl_);
   }
 
  private:
@@ -203,9 +244,63 @@ class RustObjectLifecycleManager {
   /// Check if empty.
   bool IsEmpty() const { return ffi::lifecycle_manager_is_empty(*impl_); }
 
+  /// Evict an object from the cache.
+  bool EvictObject(const std::string &object_id_binary) {
+    rust::Slice<const uint8_t> id_slice(
+        reinterpret_cast<const uint8_t *>(object_id_binary.data()),
+        object_id_binary.size());
+    return ffi::lifecycle_manager_evict_object(*impl_, id_slice);
+  }
+
   /// Get statistics snapshot.
   RustStatsCollectorSnapshot GetStats() const {
     return RustStatsCollectorSnapshot(ffi::lifecycle_manager_get_stats(*impl_));
+  }
+
+  // Overloads that accept vector<uint8_t> for convenience
+  RustLifecycleResult CreateObject(const std::vector<uint8_t> &object_id_bytes,
+                                   size_t data_size,
+                                   size_t metadata_size,
+                                   uint8_t source,
+                                   bool fallback = false) {
+    rust::Slice<const uint8_t> id_slice(object_id_bytes.data(), object_id_bytes.size());
+    return RustLifecycleResult(ffi::lifecycle_manager_create_object(
+        *impl_, id_slice, data_size, metadata_size, source, fallback));
+  }
+
+  RustLifecycleResult SealObject(const std::vector<uint8_t> &object_id_bytes) {
+    rust::Slice<const uint8_t> id_slice(object_id_bytes.data(), object_id_bytes.size());
+    return RustLifecycleResult(ffi::lifecycle_manager_seal_object(*impl_, id_slice));
+  }
+
+  RustLifecycleResult AbortObject(const std::vector<uint8_t> &object_id_bytes) {
+    rust::Slice<const uint8_t> id_slice(object_id_bytes.data(), object_id_bytes.size());
+    return RustLifecycleResult(ffi::lifecycle_manager_abort_object(*impl_, id_slice));
+  }
+
+  RustLifecycleResult DeleteObject(const std::vector<uint8_t> &object_id_bytes) {
+    rust::Slice<const uint8_t> id_slice(object_id_bytes.data(), object_id_bytes.size());
+    return RustLifecycleResult(ffi::lifecycle_manager_delete_object(*impl_, id_slice));
+  }
+
+  bool AddReference(const std::vector<uint8_t> &object_id_bytes) {
+    rust::Slice<const uint8_t> id_slice(object_id_bytes.data(), object_id_bytes.size());
+    return ffi::lifecycle_manager_add_reference(*impl_, id_slice);
+  }
+
+  bool RemoveReference(const std::vector<uint8_t> &object_id_bytes) {
+    rust::Slice<const uint8_t> id_slice(object_id_bytes.data(), object_id_bytes.size());
+    return ffi::lifecycle_manager_remove_reference(*impl_, id_slice);
+  }
+
+  bool Contains(const std::vector<uint8_t> &object_id_bytes) const {
+    rust::Slice<const uint8_t> id_slice(object_id_bytes.data(), object_id_bytes.size());
+    return ffi::lifecycle_manager_contains(*impl_, id_slice);
+  }
+
+  bool EvictObject(const std::vector<uint8_t> &object_id_bytes) {
+    rust::Slice<const uint8_t> id_slice(object_id_bytes.data(), object_id_bytes.size());
+    return ffi::lifecycle_manager_evict_object(*impl_, id_slice);
   }
 
  private:

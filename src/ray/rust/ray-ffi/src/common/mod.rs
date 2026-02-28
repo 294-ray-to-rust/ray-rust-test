@@ -15,8 +15,29 @@
 //! Common type FFI bridges.
 
 pub mod allocator;
+pub mod asio_chaos;
+pub mod bundle_location_index;
+pub mod cgroup;
+pub mod cgroup_manager;
+pub mod cmd_line_utils;
+pub mod container_util;
+pub mod counter_map;
+pub mod event_stats;
+pub mod fallback_strategy;
+pub mod filesystem;
+pub mod grpc_util;
 pub mod id;
+pub mod label_selector;
 pub mod lifecycle;
+pub mod memory_monitor;
 pub mod plasma;
+pub mod ray_config;
 pub mod scheduling;
+pub mod scoped_env_setter;
+pub mod shared_lru;
+pub mod source_location;
+pub mod spilled_object;
 pub mod status;
+pub mod status_or;
+pub mod thread_checker;
+pub mod util;

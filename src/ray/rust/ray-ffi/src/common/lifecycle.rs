@@ -48,6 +48,11 @@ pub struct RustStatsCollectorSnapshot {
     pub num_bytes_received: i64,
     pub num_objects_errored: i64,
     pub num_bytes_errored: i64,
+    // bytes_by_loc_seal counters
+    pub bytes_fallback_sealed: i64,
+    pub bytes_fallback_unsealed: i64,
+    pub bytes_primary_sealed: i64,
+    pub bytes_primary_unsealed: i64,
 }
 
 /// Result of a lifecycle operation.
@@ -120,6 +125,12 @@ mod ffi {
         fn lifecycle_manager_len(manager: &RustObjectLifecycleManager) -> usize;
         fn lifecycle_manager_is_empty(manager: &RustObjectLifecycleManager) -> bool;
 
+        // Eviction
+        fn lifecycle_manager_evict_object(
+            manager: &RustObjectLifecycleManager,
+            object_id_bytes: &[u8],
+        ) -> bool;
+
         // Get stats snapshot
         fn lifecycle_manager_get_stats(
             manager: &RustObjectLifecycleManager,
@@ -143,6 +154,13 @@ mod ffi {
         fn stats_snapshot_num_bytes_received(stats: &RustStatsCollectorSnapshot) -> i64;
         fn stats_snapshot_num_objects_errored(stats: &RustStatsCollectorSnapshot) -> i64;
         fn stats_snapshot_num_bytes_errored(stats: &RustStatsCollectorSnapshot) -> i64;
+        fn stats_snapshot_get_num_bytes_created_current(stats: &RustStatsCollectorSnapshot) -> i64;
+
+        // bytes_by_loc_seal counters
+        fn stats_snapshot_bytes_fallback_sealed(stats: &RustStatsCollectorSnapshot) -> i64;
+        fn stats_snapshot_bytes_fallback_unsealed(stats: &RustStatsCollectorSnapshot) -> i64;
+        fn stats_snapshot_bytes_primary_sealed(stats: &RustStatsCollectorSnapshot) -> i64;
+        fn stats_snapshot_bytes_primary_unsealed(stats: &RustStatsCollectorSnapshot) -> i64;
 
         // RustLifecycleResult accessors
         fn lifecycle_result_success(result: &RustLifecycleResult) -> bool;
@@ -282,6 +300,17 @@ fn lifecycle_manager_is_empty(manager: &RustObjectLifecycleManager) -> bool {
     manager.inner.is_empty()
 }
 
+fn lifecycle_manager_evict_object(
+    manager: &RustObjectLifecycleManager,
+    object_id_bytes: &[u8],
+) -> bool {
+    let object_id = bytes_to_object_id(object_id_bytes);
+    let object_id_clone = object_id.clone();
+    manager.inner.evict_objects(&[object_id]);
+    // Return true if the object was evicted (no longer exists)
+    !manager.inner.contains(&object_id_clone)
+}
+
 fn lifecycle_manager_get_stats(
     manager: &RustObjectLifecycleManager,
 ) -> Box<RustStatsCollectorSnapshot> {
@@ -304,6 +333,10 @@ fn lifecycle_manager_get_stats(
         num_bytes_received: stats.num_bytes_received.load(Ordering::SeqCst),
         num_objects_errored: stats.num_objects_errored.load(Ordering::SeqCst),
         num_bytes_errored: stats.num_bytes_errored.load(Ordering::SeqCst),
+        bytes_fallback_sealed: stats.num_bytes_fallback_sealed.load(Ordering::SeqCst),
+        bytes_fallback_unsealed: stats.num_bytes_fallback_unsealed.load(Ordering::SeqCst),
+        bytes_primary_sealed: stats.num_bytes_primary_sealed.load(Ordering::SeqCst),
+        bytes_primary_unsealed: stats.num_bytes_primary_unsealed.load(Ordering::SeqCst),
     })
 }
 
@@ -387,4 +420,25 @@ fn lifecycle_result_error_code(result: &RustLifecycleResult) -> u8 {
 
 fn lifecycle_result_error_message(result: &RustLifecycleResult) -> &str {
     &result.error_message
+}
+
+// "Current" bytes is in_use + spillable + evictable (all sealed + in-use objects)
+fn stats_snapshot_get_num_bytes_created_current(stats: &RustStatsCollectorSnapshot) -> i64 {
+    stats.num_bytes_in_use + stats.num_bytes_spillable + stats.num_bytes_evictable
+}
+
+fn stats_snapshot_bytes_fallback_sealed(stats: &RustStatsCollectorSnapshot) -> i64 {
+    stats.bytes_fallback_sealed
+}
+
+fn stats_snapshot_bytes_fallback_unsealed(stats: &RustStatsCollectorSnapshot) -> i64 {
+    stats.bytes_fallback_unsealed
+}
+
+fn stats_snapshot_bytes_primary_sealed(stats: &RustStatsCollectorSnapshot) -> i64 {
+    stats.bytes_primary_sealed
+}
+
+fn stats_snapshot_bytes_primary_unsealed(stats: &RustStatsCollectorSnapshot) -> i64 {
+    stats.bytes_primary_unsealed
 }

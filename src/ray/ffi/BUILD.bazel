@@ -23,6 +23,24 @@ ray_cxx_bridge(
     src = "//src/ray/rust/ray-ffi:src/common/status.rs",
 )
 
+# CXX bridge for asio_chaos types
+ray_cxx_bridge(
+    name = "asio_chaos_bridge",
+    src = "//src/ray/rust/ray-ffi:src/common/asio_chaos.rs",
+)
+
+# CXX bridge for cgroup types
+ray_cxx_bridge(
+    name = "cgroup_bridge",
+    src = "//src/ray/rust/ray-ffi:src/common/cgroup.rs",
+)
+
+# CXX bridge for cgroup_manager types
+ray_cxx_bridge(
+    name = "cgroup_manager_bridge",
+    src = "//src/ray/rust/ray-ffi:src/common/cgroup_manager.rs",
+)
+
 # CXX bridge for ID types
 ray_cxx_bridge(
     name = "id_bridge",
@@ -53,6 +71,114 @@ ray_cxx_bridge(
     src = "//src/ray/rust/ray-ffi:src/common/allocator.rs",
 )
 
+# CXX bridge for status_or types
+ray_cxx_bridge(
+    name = "status_or_bridge",
+    src = "//src/ray/rust/ray-ffi:src/common/status_or.rs",
+)
+
+# CXX bridge for util types
+ray_cxx_bridge(
+    name = "util_bridge",
+    src = "//src/ray/rust/ray-ffi:src/common/util.rs",
+)
+
+# CXX bridge for shared_lru types
+ray_cxx_bridge(
+    name = "shared_lru_bridge",
+    src = "//src/ray/rust/ray-ffi:src/common/shared_lru.rs",
+)
+
+# CXX bridge for filesystem types
+ray_cxx_bridge(
+    name = "filesystem_bridge",
+    src = "//src/ray/rust/ray-ffi:src/common/filesystem.rs",
+)
+
+# CXX bridge for source_location types
+ray_cxx_bridge(
+    name = "source_location_bridge",
+    src = "//src/ray/rust/ray-ffi:src/common/source_location.rs",
+)
+
+# CXX bridge for event_stats types
+ray_cxx_bridge(
+    name = "event_stats_bridge",
+    src = "//src/ray/rust/ray-ffi:src/common/event_stats.rs",
+)
+
+# CXX bridge for ray_config types
+ray_cxx_bridge(
+    name = "ray_config_bridge",
+    src = "//src/ray/rust/ray-ffi:src/common/ray_config.rs",
+)
+
+# CXX bridge for counter_map types
+ray_cxx_bridge(
+    name = "counter_map_bridge",
+    src = "//src/ray/rust/ray-ffi:src/common/counter_map.rs",
+)
+
+# CXX bridge for memory_monitor types
+ray_cxx_bridge(
+    name = "memory_monitor_bridge",
+    src = "//src/ray/rust/ray-ffi:src/common/memory_monitor.rs",
+)
+
+# CXX bridge for label_selector types
+ray_cxx_bridge(
+    name = "label_selector_bridge",
+    src = "//src/ray/rust/ray-ffi:src/common/label_selector.rs",
+)
+
+# CXX bridge for fallback_strategy types
+ray_cxx_bridge(
+    name = "fallback_strategy_bridge",
+    src = "//src/ray/rust/ray-ffi:src/common/fallback_strategy.rs",
+)
+
+# CXX bridge for grpc_util types
+ray_cxx_bridge(
+    name = "grpc_util_bridge",
+    src = "//src/ray/rust/ray-ffi:src/common/grpc_util.rs",
+)
+
+# CXX bridge for bundle_location_index types
+ray_cxx_bridge(
+    name = "bundle_location_index_bridge",
+    src = "//src/ray/rust/ray-ffi:src/common/bundle_location_index.rs",
+)
+
+# CXX bridge for scoped_env_setter types
+ray_cxx_bridge(
+    name = "scoped_env_setter_bridge",
+    src = "//src/ray/rust/ray-ffi:src/common/scoped_env_setter.rs",
+)
+
+# CXX bridge for thread_checker types
+ray_cxx_bridge(
+    name = "thread_checker_bridge",
+    src = "//src/ray/rust/ray-ffi:src/common/thread_checker.rs",
+)
+
+# CXX bridge for cmd_line_utils types
+ray_cxx_bridge(
+    name = "cmd_line_utils_bridge",
+    src = "//src/ray/rust/ray-ffi:src/common/cmd_line_utils.rs",
+)
+
+# CXX bridge for container_util types
+ray_cxx_bridge(
+    name = "container_util_bridge",
+    src = "//src/ray/rust/ray-ffi:src/common/container_util.rs",
+)
+
+# CXX bridge for spilled_object types
+ray_cxx_bridge(
+    name = "spilled_object_bridge",
+    src = "//src/ray/rust/ray-ffi:src/common/spilled_object.rs",
+)
+
 # C++ wrapper for Rust Status implementation
 ray_cc_library(
     name = "rust_status",
@@ -60,6 +186,39 @@ ray_cc_library(
     hdrs = ["rust_status.h"],
     deps = [
         ":status_bridge",
+        "//src/ray/rust/ray-ffi:ray_ffi_static",
+        "@crate_index//:cxx",
+    ],
+)
+
+# C++ wrapper for Rust asio_chaos implementations
+ray_cc_library(
+    name = "rust_asio_chaos",
+    hdrs = ["rust_asio_chaos.h"],
+    deps = [
+        ":asio_chaos_bridge",
+        "//src/ray/rust/ray-ffi:ray_ffi_static",
+        "@crate_index//:cxx",
+    ],
+)
+
+# C++ wrapper for Rust cgroup implementations
+ray_cc_library(
+    name = "rust_cgroup",
+    hdrs = ["rust_cgroup.h"],
+    deps = [
+        ":cgroup_bridge",
+        "//src/ray/rust/ray-ffi:ray_ffi_static",
+        "@crate_index//:cxx",
+    ],
+)
+
+# C++ wrapper for Rust cgroup_manager implementations
+ray_cc_library(
+    name = "rust_cgroup_manager",
+    hdrs = ["rust_cgroup_manager.h"],
+    deps = [
+        ":cgroup_manager_bridge",
         "//src/ray/rust/ray-ffi:ray_ffi_static",
         "@crate_index//:cxx",
     ],
@@ -121,15 +280,235 @@ ray_cc_library(
     ],
 )
 
+# C++ wrapper for Rust status_or implementations
+ray_cc_library(
+    name = "rust_status_or",
+    hdrs = ["rust_status_or.h"],
+    deps = [
+        ":status_or_bridge",
+        "//src/ray/rust/ray-ffi:ray_ffi_static",
+        "@crate_index//:cxx",
+    ],
+)
+
+# C++ wrapper for Rust util implementations
+ray_cc_library(
+    name = "rust_util",
+    hdrs = ["rust_util.h"],
+    deps = [
+        ":util_bridge",
+        "//src/ray/rust/ray-ffi:ray_ffi_static",
+        "@crate_index//:cxx",
+    ],
+)
+
+# C++ wrapper for Rust shared_lru implementations
+ray_cc_library(
+    name = "rust_shared_lru",
+    hdrs = ["rust_shared_lru.h"],
+    deps = [
+        ":shared_lru_bridge",
+        "//src/ray/rust/ray-ffi:ray_ffi_static",
+        "@crate_index//:cxx",
+    ],
+)
+
+# C++ wrapper for Rust filesystem implementations
+ray_cc_library(
+    name = "rust_filesystem",
+    hdrs = ["rust_filesystem.h"],
+    deps = [
+        ":filesystem_bridge",
+        "//src/ray/rust/ray-ffi:ray_ffi_static",
+        "@crate_index//:cxx",
+    ],
+)
+
+# C++ wrapper for Rust source_location implementations
+ray_cc_library(
+    name = "rust_source_location",
+    hdrs = ["rust_source_location.h"],
+    deps = [
+        ":source_location_bridge",
+        "//src/ray/rust/ray-ffi:ray_ffi_static",
+        "@crate_index//:cxx",
+    ],
+)
+
+# C++ wrapper for Rust event_stats implementations
+ray_cc_library(
+    name = "rust_event_stats",
+    hdrs = ["rust_event_stats.h"],
+    deps = [
+        ":event_stats_bridge",
+        "//src/ray/rust/ray-ffi:ray_ffi_static",
+        "@crate_index//:cxx",
+    ],
+)
+
+# C++ wrapper for Rust ray_config implementations
+ray_cc_library(
+    name = "rust_ray_config",
+    hdrs = ["rust_ray_config.h"],
+    deps = [
+        ":ray_config_bridge",
+        "//src/ray/rust/ray-ffi:ray_ffi_static",
+        "@crate_index//:cxx",
+    ],
+)
+
+# C++ wrapper for Rust counter_map implementations
+ray_cc_library(
+    name = "rust_counter_map",
+    hdrs = ["rust_counter_map.h"],
+    deps = [
+        ":counter_map_bridge",
+        "//src/ray/rust/ray-ffi:ray_ffi_static",
+        "@crate_index//:cxx",
+    ],
+)
+
+# C++ wrapper for Rust memory_monitor implementations
+ray_cc_library(
+    name = "rust_memory_monitor",
+    hdrs = ["rust_memory_monitor.h"],
+    deps = [
+        ":memory_monitor_bridge",
+        "//src/ray/rust/ray-ffi:ray_ffi_static",
+        "@crate_index//:cxx",
+    ],
+)
+
+# C++ wrapper for Rust label_selector implementations
+ray_cc_library(
+    name = "rust_label_selector",
+    hdrs = ["rust_label_selector.h"],
+    deps = [
+        ":label_selector_bridge",
+        "//src/ray/rust/ray-ffi:ray_ffi_static",
+        "@crate_index//:cxx",
+    ],
+)
+
+# C++ wrapper for Rust fallback_strategy implementations
+ray_cc_library(
+    name = "rust_fallback_strategy",
+    hdrs = ["rust_fallback_strategy.h"],
+    deps = [
+        ":fallback_strategy_bridge",
+        "//src/ray/rust/ray-ffi:ray_ffi_static",
+        "@crate_index//:cxx",
+    ],
+)
+
+# C++ wrapper for Rust grpc_util implementations
+ray_cc_library(
+    name = "rust_grpc_util",
+    hdrs = ["rust_grpc_util.h"],
+    deps = [
+        ":grpc_util_bridge",
+        "//src/ray/rust/ray-ffi:ray_ffi_static",
+        "@crate_index//:cxx",
+    ],
+)
+
+# C++ wrapper for Rust bundle_location_index implementations
+ray_cc_library(
+    name = "rust_bundle_location_index",
+    hdrs = ["rust_bundle_location_index.h"],
+    deps = [
+        ":bundle_location_index_bridge",
+        ":rust_id",
+        "//src/ray/rust/ray-ffi:ray_ffi_static",
+        "@crate_index//:cxx",
+    ],
+)
+
+# C++ wrapper for Rust scoped_env_setter implementations
+ray_cc_library(
+    name = "rust_scoped_env_setter",
+    hdrs = ["rust_scoped_env_setter.h"],
+    deps = [
+        ":scoped_env_setter_bridge",
+        "//src/ray/rust/ray-ffi:ray_ffi_static",
+        "@crate_index//:cxx",
+    ],
+)
+
+# C++ wrapper for Rust thread_checker implementations
+ray_cc_library(
+    name = "rust_thread_checker",
+    hdrs = ["rust_thread_checker.h"],
+    deps = [
+        ":thread_checker_bridge",
+        "//src/ray/rust/ray-ffi:ray_ffi_static",
+        "@crate_index//:cxx",
+    ],
+)
+
+# C++ wrapper for Rust cmd_line_utils implementations
+ray_cc_library(
+    name = "rust_cmd_line_utils",
+    hdrs = ["rust_cmd_line_utils.h"],
+    deps = [
+        ":cmd_line_utils_bridge",
+        "//src/ray/rust/ray-ffi:ray_ffi_static",
+        "@crate_index//:cxx",
+    ],
+)
+
+# C++ wrapper for Rust container_util implementations
+ray_cc_library(
+    name = "rust_container_util",
+    hdrs = ["rust_container_util.h"],
+    deps = [
+        ":container_util_bridge",
+        "//src/ray/rust/ray-ffi:ray_ffi_static",
+        "@crate_index//:cxx",
+    ],
+)
+
+# C++ wrapper for Rust spilled_object implementations
+ray_cc_library(
+    name = "rust_spilled_object",
+    hdrs = ["rust_spilled_object.h"],
+    deps = [
+        ":spilled_object_bridge",
+        "//src/ray/rust/ray-ffi:ray_ffi_static",
+        "@crate_index//:cxx",
+    ],
+)
+
 # Combined FFI library for convenience
 ray_cc_library(
     name = "ray_rust_ffi",
     deps = [
         ":rust_allocator",
+        ":rust_asio_chaos",
+        ":rust_bundle_location_index",
+        ":rust_cgroup",
+        ":rust_cgroup_manager",
+        ":rust_cmd_line_utils",
+        ":rust_container_util",
+        ":rust_counter_map",
+        ":rust_event_stats",
+        ":rust_fallback_strategy",
+        ":rust_filesystem",
+        ":rust_grpc_util",
         ":rust_id",
+        ":rust_label_selector",
         ":rust_lifecycle",
+        ":rust_memory_monitor",
         ":rust_plasma",
+        ":rust_ray_config",
         ":rust_scheduling",
+        ":rust_scoped_env_setter",
+        ":rust_shared_lru",
+        ":rust_source_location",
+        ":rust_spilled_object",
         ":rust_status",
+        ":rust_status_or",
+        ":rust_thread_checker",
+        ":rust_util",
     ],
 )

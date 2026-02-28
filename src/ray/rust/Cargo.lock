@@ -582,7 +582,9 @@ version = "0.1.0"
 dependencies = [
  "cxx",
  "cxx-build",
+ "lazy_static",
  "parking_lot",
+ "rand",
  "ray-common",
  "ray-object-manager",
  "tempfile",
